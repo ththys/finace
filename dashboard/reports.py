@@ -175,7 +175,11 @@ def _collect_new(ticker, known, since):
 
 
 def update_reports(conn, verbose=True):
-    watch = settings.get_watchlist(conn)
+    try:
+        watch = settings.get_watchlist(conn)
+    except Exception as e:
+        print(f"  ⚠ Firebase 관심 종목을 못 읽어서 PC에 저장된 목록을 씀: {e}")
+        watch = db.get_watchlist(conn)
     tickers = watch.index[watch["track_reports"] == 1]
     if len(tickers) == 0:
         print("리포트: 추적 중인 종목이 없어요 (종목 관리에서 '리포트 추적'을 켜세요)")

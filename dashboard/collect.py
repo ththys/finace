@@ -84,7 +84,11 @@ def fetch_universe(conn, kospi_cap, kosdaq_cap):
     top = cap.sort_values("시가총액", ascending=False).head(TOP_N)
     universe = {t: (float(c), "KOSPI") for t, c in top["시가총액"].items()}
 
-    watch = settings.get_watchlist(conn)
+    try:
+        watch = settings.get_watchlist(conn)
+    except Exception as e:
+        print(f"  ⚠ Firebase 관심 종목을 못 읽어서 PC에 저장된 목록을 씀: {e}")
+        watch = db.get_watchlist(conn)
     added = 0
     for t in watch.index:
         if t in universe:
