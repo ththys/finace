@@ -5,3 +5,5 @@ _kospi_writing.tmp
 debug_*
 __pycache__/
 .streamlit/secrets.toml
+update.log
+python_path.txt
