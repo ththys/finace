@@ -159,7 +159,8 @@ class FirebaseStore {
     this.auth = auth.getAuth(app); this.db = fs.getFirestore(app);
     auth.onAuthStateChanged(this.auth, u => onUser(u));
   }
-  signIn(){
+  signIn(email, pw){
+    if (email) return this.a.signInWithEmailAndPassword(this.auth, email, pw);
     const p = new this.a.GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
     return this.a.signInWithPopup(this.auth, p);
   }
@@ -270,18 +271,28 @@ function viewLogin(msg = ""){
     <b>📒 투자일지</b>
     <span class="hint">허용된 Google 계정으로만 읽고 쓸 수 있어요.</span>
     <button class="btn pri" id="gl">Google로 로그인</button>
+    <span class="hint" style="text-align:center">또는 이메일로</span>
+    <form id="lf" style="display:grid;gap:8px">
+      <input type="email" id="em" placeholder="이메일" autocomplete="username" required>
+      <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" required>
+      <button class="btn">이메일로 로그인</button>
+    </form>
     <div class="err" id="le">${esc(msg)}</div>
   </div>`;
-  $("#gl").onclick = async () => {
+  const tryIn = async (...args) => {
     $("#le").textContent = "";
-    try { await store.signIn(); }
+    try { await store.signIn(...args); }
     catch (err) {
       const c = err.code || err.message;
       $("#le").textContent = c === "auth/unauthorized-domain"
         ? "이 주소가 Firebase 승인된 도메인에 없어요 (Authentication → 설정 → 승인된 도메인)"
-        : c === "auth/popup-blocked" ? "팝업이 차단됐어요. 브라우저에서 팝업을 허용해 주세요" : "로그인 실패: " + c;
+        : c === "auth/popup-blocked" ? "팝업이 차단됐어요. 브라우저에서 팝업을 허용해 주세요"
+        : c === "auth/operation-not-allowed" ? "Firebase에서 이 로그인 방법이 꺼져 있어요 (Authentication → 로그인 방법)"
+        : c === "auth/invalid-credential" ? "이메일이나 비밀번호가 틀렸어요" : "로그인 실패: " + c;
     }
   };
+  $("#gl").onclick = () => tryIn();
+  $("#lf").onsubmit = e => { e.preventDefault(); tryIn($("#em").value.trim(), $("#pw").value); };
 }
 
 // ---------------- 화면: 목록 ----------------
