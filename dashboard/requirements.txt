@@ -1,0 +1,7 @@
+# 화면(대시보드)용 — Streamlit 클라우드가 이 파일을 씀. 테스트한 버전으로 고정
+streamlit==1.65.0
+pandas==2.3.3
+altair==6.3.0
+requests==2.34.2
+google-auth==2.62.1
+tzdata

@@ -1,0 +1,3 @@
+# 집 PC용 (데이터 수집 포함): pip install -r requirements-pc.txt
+-r requirements.txt
+pykrx>=1.2.9
