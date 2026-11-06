@@ -31,6 +31,12 @@ import settings  # noqa: E402
 
 cloud.load_env()
 WEB = datasource.is_web()
+ON_CLOUD = APP_DIR.startswith("/mount/src")  # Streamlit 클라우드에서 돌고 있는지
+
+if ON_CLOUD and not WEB:
+    st.title("코스피 지표")
+    st.error("웹 설정(Secrets)이 아직 없어요. Manage app → ⋮ → Settings → Secrets 에 설정을 붙여 넣고 저장하세요.")
+    st.stop()
 
 # 선택: APP_PASSWORD 를 정해 두면 비밀번호를 알아야 열림
 if os.getenv("APP_PASSWORD") and not st.session_state.get("authed"):
