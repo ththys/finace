@@ -15,12 +15,14 @@ os.chdir(APP_DIR)
 st.set_page_config(page_title="코스피 지표", layout="wide", initial_sidebar_state="collapsed")
 
 # Streamlit 클라우드에서는 secrets 를 환경변수로 옮겨서 집 PC(.env)와 같은 방식으로 읽음
+SECRET_KEYS, SECRET_ERR = [], None
 try:
     for _k, _v in st.secrets.items():
+        SECRET_KEYS.append(_k)
         if isinstance(_v, (str, int, float)):
-            os.environ.setdefault(_k, str(_v))
-except Exception:
-    pass
+            os.environ.setdefault(_k.strip().upper(), str(_v).strip() if isinstance(_v, str) else str(_v))
+except Exception as _e:
+    SECRET_ERR = f"{type(_e).__name__}: {_e}"
 
 import cloud  # noqa: E402
 import datasource  # noqa: E402
@@ -35,7 +37,10 @@ ON_CLOUD = APP_DIR.startswith("/mount/src")  # Streamlit 클라우드에서 돌�
 
 if ON_CLOUD and not WEB:
     st.title("코스피 지표")
-    st.error("웹 설정(Secrets)이 아직 없어요. Manage app → ⋮ → Settings → Secrets 에 설정을 붙여 넣고 저장하세요.")
+    st.error("웹 설정(Secrets)에서 GDRIVE_FOLDER_ID 를 못 찾았어요. "
+             "Manage app → ⋮ → Settings → Secrets 에 넣고 저장한 뒤, ⋮ → Reboot app 을 눌러 보세요.")
+    st.caption("앱이 읽은 설정 이름: " + (", ".join(SECRET_KEYS) if SECRET_KEYS else "(없음)")
+               + (f" · 읽기 오류: {SECRET_ERR}" if SECRET_ERR else ""))
     st.stop()
 
 # 선택: APP_PASSWORD 를 정해 두면 비밀번호를 알아야 열림
