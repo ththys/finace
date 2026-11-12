@@ -1,0 +1,28 @@
+name: reports
+# 관심종목 리포트 받기 → Firebase (사이트의 [지금 리포트 받기] 버튼 · 평일 자동). 집 PC 없이 돌아감.
+# 필요한 Secrets (집 PC가 publish_site.setup_actions 로 넣어 줌): FIREBASE_API_KEY, FIREBASE_PROJECT_ID, JOURNAL_EMAIL, JOURNAL_PASSWORD
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 23,2,5,8,11 * * 0-4"   # 평일 KST 08:17, 11:17, 14:17, 17:17, 20:17
+concurrency:
+  group: reports
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: dashboard
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python -u dashboard/reports.py
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          JOURNAL_EMAIL: ${{ secrets.JOURNAL_EMAIL }}
+          JOURNAL_PASSWORD: ${{ secrets.JOURNAL_PASSWORD }}

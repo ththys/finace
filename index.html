@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>코스피 데일리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script>try { const t = localStorage.getItem("kd_theme"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+<script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
+</head>
+<body>
+<p id="boot" style="font:14px sans-serif;padding:24px;opacity:.6">불러오는 중…</p>
+<script>
+/* 화면 코드(web/)를 열 때마다 서버에 새로 확인해서 받는다 → 코드를 고치면 새로고침 한 번에 반영 (빌드 단계 없음).
+   이 파일은 고칠 일이 거의 없다: 화면 틀·메뉴는 web/main.js, 나머지는 web/*.js, 모양은 web/style.css */
+(async () => {
+  const FILES = ["style.css", "core.js", "stock.js", "market.js", "lists.js", "main.js"];
+  try {
+    const src = await Promise.all(FILES.map(f => fetch("web/" + f, { cache: "no-cache" }).then(r => { if (!r.ok) throw new Error(f + " " + r.status); return r.text(); })));
+    FILES.forEach((f, i) => { const el = document.createElement(f.endsWith(".css") ? "style" : "script");
+      el.textContent = src[i] + (f.endsWith(".js") ? "\n//# sourceURL=web/" + f : ""); document.head.appendChild(el); });
+  } catch (e) { document.getElementById("boot").textContent = "화면을 불러오지 못했어요. 새로고침해 주세요. (" + e.message + ")"; }
+})();
+</script>
+</body>
+</html>

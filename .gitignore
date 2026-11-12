@@ -1,0 +1,10 @@
+.env
+*.db
+*.db-journal
+_kospi_writing.tmp
+__pycache__/
+site_data/
+*.log
+debug_*
+python_path.txt
+.cloud_setup_done

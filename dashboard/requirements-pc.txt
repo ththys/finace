@@ -1,0 +1,5 @@
+# 집 PC: pip install -r requirements-pc.txt
+pykrx>=1.2.9
+pandas
+numpy
+requests

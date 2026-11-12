@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>투자일지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+:root{
+  --bg:#f7f6f3; --card:#fff; --ink:#1d1d1f; --sub:#6b6b70; --line:#e4e2dc;
+  --accent:#1f6f5c; --accent-soft:#e3efe9; --warn:#b4542d;
+  --buy:#1f6f5c; --sell:#b4542d; --watch:#4a5fb3; --review:#8a5a9e; --memo:#6b6b70;
+}
+:root[data-theme="dark"]{ --bg:#141416; --card:#1d1d20; --ink:#ececee; --sub:#9a9aa2; --line:#2d2d32;
+  --accent:#5fc3a5; --accent-soft:#1f2f2a; --warn:#e08a63;
+  --buy:#5fc3a5; --sell:#e08a63; --watch:#8fa0e8; --review:#c39ad6; --memo:#9a9aa2; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#141416; --card:#1d1d20; --ink:#ececee; --sub:#9a9aa2; --line:#2d2d32;
+    --accent:#5fc3a5; --accent-soft:#1f2f2a; --warn:#e08a63;
+    --buy:#5fc3a5; --sell:#e08a63; --watch:#8fa0e8; --review:#c39ad6; --memo:#9a9aa2; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 "Noto Sans KR",system-ui,sans-serif}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:12px;height:56px}
+header h1{font-size:18px;margin:0;cursor:pointer}
+header .sp{flex:1}
+.who{font-size:12px;color:var(--sub)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{color:var(--warn)}
+.btn:disabled{opacity:.5;cursor:default}
+.banner{background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin:16px 0;font-size:13px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 8px}
+.tools input,.tools select{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px}
+.tools input{flex:1;min-width:180px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 16px}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--card);
+  border-radius:999px;padding:1px 10px;font-size:12px;cursor:pointer;color:var(--sub)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.tk{color:var(--ink)}
+.kind{font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;color:#fff;white-space:nowrap}
+.k-매수{background:var(--buy)}.k-매도{background:var(--sell)}.k-관찰{background:var(--watch)}
+.k-복기{background:var(--review)}.k-메모{background:var(--memo)}
+.feed{display:flex;flex-direction:column;gap:14px;padding-bottom:60px}
+.post{display:flex;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer}
+.post:hover{border-color:var(--accent)}
+.post .txt{flex:1;min-width:0}
+.post h2{font-size:17px;margin:4px 0}
+.post .ex{color:var(--sub);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.post .thumb{width:120px;height:90px;border-radius:8px;object-fit:cover;flex:none;background:var(--line)}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
+.empty{color:var(--sub);text-align:center;padding:60px 0}
+article{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px;margin:20px 0 60px}
+article h1{font-size:26px;line-height:1.35;margin:8px 0 12px}
+.body img{max-width:100%;border-radius:8px;display:block;margin:12px auto;cursor:zoom-in}
+.body blockquote{margin:12px 0;padding:4px 14px;border-left:3px solid var(--accent);color:var(--sub)}
+.body table{border-collapse:collapse}.body td,.body th{border:1px solid var(--line);padding:4px 8px}
+.body pre{background:var(--bg);padding:10px;border-radius:8px;overflow:auto}
+.actions{display:flex;gap:8px;margin-top:24px;border-top:1px solid var(--line);padding-top:16px}
+.form{display:grid;gap:12px;margin:20px 0}
+.form label{font-size:12px;color:var(--sub);display:block;margin-bottom:2px}
+.form input,.form select,.form textarea{width:100%;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 10px}
+.row{display:grid;grid-template-columns:1fr 1fr 2fr;gap:12px}
+@media (max-width:640px){.row{grid-template-columns:1fr 1fr}.row>div:last-child{grid-column:1/-1}
+  .post .thumb{width:84px;height:64px} article{padding:18px}}
+textarea#body{min-height:420px;font:14px/1.6 ui-monospace,Consolas,"Noto Sans KR",monospace;resize:vertical}
+.drop{outline:2px dashed var(--accent)}
+.tabs{display:flex;gap:6px}
+.tabs .btn.on{border-color:var(--accent);color:var(--accent)}
+#preview{min-height:420px;border:1px solid var(--line);border-radius:8px;padding:12px 16px;background:var(--card)}
+.hint{font-size:12px;color:var(--sub)}
+.login{max-width:360px;margin:80px auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:10px}
+.login input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
+.err{color:var(--warn);font-size:13px;min-height:1em}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20;cursor:zoom-out}
+#lightbox img{max-width:95vw;max-height:95vh}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+.toast.show{opacity:1}
+/* 작성 당시 가격 vs 지금 */
+.since{margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--card);overflow-x:auto}
+.since table{width:100%;border-collapse:collapse;font-size:14px}
+.since th{font-size:12px;color:var(--sub);font-weight:500;text-align:right;padding:8px 12px;border-bottom:1px solid var(--line)}
+.since td{text-align:right;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.since tr:last-child td{border-bottom:0}
+.since th:first-child,.since td:first-child{text-align:left}
+.since td small{display:block;font-size:11px;color:var(--sub)}
+.pu{color:#d1302b} .pd{color:#1d5bbf}
+:root[data-theme="dark"] .pu{color:#f0605a} :root[data-theme="dark"] .pd{color:#5d93ee}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pu{color:#f0605a} :root:not([data-theme="light"]) .pd{color:#5d93ee}}
+.chip .pc{font-weight:600;font-size:11px}
+/* 종목 자동완성 */
+.tkbox{position:relative}
+.tksug{position:absolute;left:0;right:0;top:100%;z-index:20;list-style:none;margin:4px 0 0;padding:4px 0;background:var(--card);border:1px solid var(--line);border-radius:8px;max-height:280px;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.tksug li{display:flex;justify-content:space-between;gap:10px;padding:6px 12px;cursor:pointer}
+.tksug li.on,.tksug li:hover{background:var(--accent-soft)}
+.tksug li small{color:var(--sub)}
+.tksug li.none{color:var(--sub);cursor:default}
+.btn.danger.arm{background:var(--warn);color:#fff;border-color:var(--warn)}
+/* 대시보드 안 */
+.embed header{position:static}
+.embed header h1,.embed #who,.embed #outBtn{display:none}
+
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1 onclick="go('#/')">📒 투자일지</h1>
+  <span class="sp"></span>
+  <span class="who" id="who"></span>
+  <button class="btn pri" id="newBtn" onclick="go('#/new')" hidden>✏️ 새 글</button>
+  <button class="btn" id="outBtn" hidden>로그아웃</button>
+</div></header>
+<main class="wrap" id="app"></main>
+<div id="lightbox" onclick="this.style.display='none'"><img alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* Firebase 웹 설정 (공개돼도 되는 값 — 접근은 Firestore 규칙이 막음). null 이면 체험 모드: 이 브라우저에만 저장 */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBdXtCVCYp8QkvQ4ZTccFbzVO1kQkD9PPE",
+  authDomain: "finace-journal.firebaseapp.com",
+  projectId: "finace-journal",
+  storageBucket: "finace-journal.firebasestorage.app",
+  messagingSenderId: "950771828976",
+  appId: "1:950771828976:web:e352c88f5ce878643b1a35"
+};
+
+const KINDS = ["매수", "매도", "관찰", "복기", "메모"];
+const MAX_IMG_BYTES = 850_000;   // Firestore 문서 1MB 제한 아래로
+const FB_VER = "10.12.2";
+
+// ---------------- 저장소 ----------------
+class LocalStore {
+  constructor(){ this.k = "journal_demo_v1"; this.ik = "journal_demo_img_v1"; }
+  _get(k){ try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return {}; } }
+  _set(k, v){
+    try { localStorage.setItem(k, JSON.stringify(v)); }
+    catch { throw new Error("브라우저 저장 공간이 꽉 찼어요 (체험 모드는 약 5MB)"); }
+  }
+  async init(onUser){ onUser({ email: "체험 모드" }); }
+  async signIn(){} async signOut(){}
+  async list(){ return Object.entries(this._get(this.k)).map(([id, p]) => ({ id, ...p })); }
+  async get(id){ const p = this._get(this.k)[id]; return p ? { id, ...p } : null; }
+  async save(id, data){
+    const all = this._get(this.k); id = id || "p" + Date.now().toString(36);
+    all[id] = { ...(all[id] || {}), ...data }; this._set(this.k, all); return id;
+  }
+  async remove(id){ const all = this._get(this.k); delete all[id]; this._set(this.k, all); }
+  async putImage(data){ const all = this._get(this.ik); const id = "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    all[id] = data; this._set(this.ik, all); return id; }
+  async getImage(id){ return this._get(this.ik)[id] || null; }
+  async removeImage(id){ const all = this._get(this.ik); delete all[id]; this._set(this.ik, all); }
+}
+
+class FirebaseStore {
+  async init(onUser){
+    const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+    const [{ initializeApp }, auth, fs] = await Promise.all([
+      import(base + "firebase-app.js"), import(base + "firebase-auth.js"), import(base + "firebase-firestore.js")]);
+    this.a = auth; this.f = fs;
+    const app = initializeApp(FIREBASE_CONFIG);
+    this.auth = auth.getAuth(app); this.db = fs.getFirestore(app);
+    auth.onAuthStateChanged(this.auth, u => onUser(u));
+  }
+  signIn(email, pw){
+    if (email) return this.a.signInWithEmailAndPassword(this.auth, email, pw);
+    const p = new this.a.GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
+    return this.a.signInWithPopup(this.auth, p);
+  }
+  signOut(){ return this.a.signOut(this.auth); }
+  async list(){
+    const { collection, getDocs } = this.f;
+    const snap = await getDocs(collection(this.db, "journal"));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+  async get(id){ const { doc, getDoc } = this.f; const d = await getDoc(doc(this.db, "journal", id));
+    return d.exists() ? { id: d.id, ...d.data() } : null; }
+  async save(id, data){
+    const { doc, collection, setDoc } = this.f;
+    const ref = id ? doc(this.db, "journal", id) : doc(collection(this.db, "journal"));
+    await setDoc(ref, data, { merge: true }); return ref.id;
+  }
+  async remove(id){ const { doc, deleteDoc } = this.f; await deleteDoc(doc(this.db, "journal", id)); }
+  async putImage(data){ const { collection, addDoc } = this.f;
+    const r = await addDoc(collection(this.db, "journal_images"), { data, createdAt: new Date().toISOString() }); return r.id; }
+  async getImage(id){ const { doc, getDoc } = this.f; const d = await getDoc(doc(this.db, "journal_images", id));
+    return d.exists() ? d.data().data : null; }
+  async removeImage(id){ const { doc, deleteDoc } = this.f; await deleteDoc(doc(this.db, "journal_images", id)); }
+}
+
+const store = FIREBASE_CONFIG ? new FirebaseStore() : new LocalStore();
+const DEMO = !FIREBASE_CONFIG;
+
+// ---------------- 공통 ----------------
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+window.go = h => { location.hash = h; };
+const fmtTime = iso => { if (!iso) return ""; const d = new Date(iso); if (isNaN(d)) return iso;
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2200); }
+
+let user = null, posts = [], loaded = false;
+const filt = { q: "", kind: "", tags: new Set(), ticker: "" };
+const imgCache = new Map();
+
+/** "005930 삼성전자, 하이닉스(000660)" -> [{code:"005930",name:"삼성전자"}, {code:"000660",name:"하이닉스"}] */
+function parseTickers(s){
+  return String(s || "").split(/[,/\n]/).map(x => x.trim()).filter(Boolean).map(x => {
+    const m = x.match(/\d{6}/); const code = m ? m[0] : "";
+    const name = x.replace(/\d{6}/, "").replace(/[()]/g, "").trim();
+    return { code, name: name || code };
+  });
+}
+// 종목 목록 (대시보드가 만드는 data/stocks.json 재사용)
+let STOCKS = null;
+const loadStocks = () => STOCKS ||= pxMeta().then(m => fetch("../data/stocks.json?v=" + encodeURIComponent(m?.built || ""))).then(r => r.ok ? r.json() : []).catch(() => []);
+function tickerSuggest(inp, ul, after){
+  let hits = [], hi = 0;
+  const lastTok = () => { const v = inp.value, i = v.lastIndexOf(","); return { head: i < 0 ? "" : v.slice(0, i + 1) + " ", tok: (i < 0 ? v : v.slice(i + 1)).trim() }; };
+  const pick = s => { const { head } = lastTok(); inp.value = (head + `${s.t} ${s.n}, `).replace(/^\s+/, ""); ul.hidden = true; inp.focus(); after && after(); };
+  inp.addEventListener("input", async () => {
+    const { tok } = lastTok(), q = tok.toLowerCase(); if (!q || /^\d{6}\s/.test(tok)) { ul.hidden = true; return; }
+    const list = await loadStocks();
+    hits = list.filter(s => s.n.toLowerCase().includes(q) || s.t.startsWith(q))
+      .sort((a, b) => (a.n.toLowerCase().startsWith(q) ? 0 : 1) - (b.n.toLowerCase().startsWith(q) ? 0 : 1) || b.cap - a.cap).slice(0, 10); hi = 0;
+    ul.innerHTML = hits.map((s, i) => `<li data-i="${i}" class="${i ? "" : "on"}"><b>${esc(s.n)}</b><small>${s.t} · ${esc(s.s || "")}</small></li>`).join("") || `<li class="none">없음 (그대로 써도 돼요)</li>`;
+    ul.hidden = false;
+    ul.querySelectorAll("li[data-i]").forEach(li => li.onmousedown = e => { e.preventDefault(); pick(hits[+li.dataset.i]); });
+  });
+  inp.addEventListener("keydown", e => {
+    if (ul.hidden || !hits.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { hi = (hi + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length;
+      ul.querySelectorAll("li").forEach((li, i) => li.classList.toggle("on", i === hi)); e.preventDefault(); }
+    else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(hits[hi]); }
+    else if (e.key === "Escape") ul.hidden = true;
+  });
+  inp.addEventListener("blur", () => setTimeout(() => ul.hidden = true, 150));
+}
+/** 코드 없이 이름만 쓴 종목은 목록에서 이름이 같은 종목의 코드를 채움 */
+async function fillCodes(ts){
+  if (!ts.some(t => !t.code)) return ts;
+  const list = await loadStocks(), by = new Map(list.map(s => [s.n.replace(/\s/g, "").toLowerCase(), s]));
+  return ts.map(t => { if (t.code) return t; const s = by.get(t.name.replace(/\s/g, "").toLowerCase()); return s ? { code: s.t, name: s.n } : t; });
+}
+// ---------------- 작성 당시 가격 vs 지금 (대시보드가 만든 종가 파일 재사용) ----------------
+const PX = { meta: null, chunks: new Map() };
+const pxMeta = () => PX.meta ||= fetch("../data/meta.json?t=" + Date.now(), { cache: "no-store" }).then(r => r.json()).catch(() => null);
+function pxChunk(n){
+  try { if (window.parent !== window && typeof window.parent.loadChunk === "function") return window.parent.loadChunk(n); } catch {}
+  if (!PX.chunks.has(n)) PX.chunks.set(n, pxMeta().then(m => fetch(`../data/px/${n}.json?v=${encodeURIComponent(m?.built || "")}`)).then(r => r.ok ? r.json() : null)
+    .then(c => { if (c) c.idx = Object.fromEntries(c.t.map((t, i) => [t, i])); return c; }).catch(() => null));
+  return PX.chunks.get(n);
+}
+/** 그 날짜(휴일이면 직전 거래일) 종가 → {d, p} */
+async function priceOn(code, date){
+  const m = await pxMeta(); if (!m || !/^\d{6}$/.test(code || "") || !date) return null;
+  const d = date > m.asof ? m.asof : date, lastY = +m.asof.slice(0, 4);
+  let i = m.chunks.indexOf(+d.slice(0, 4) < lastY ? "Y" + d.slice(0, 4) : "M" + d.slice(0, 7));
+  if (i < 0) i = d < m.first ? -1 : m.chunks.length - 1;
+  for (let step = 0; i >= 0 && step < 3; i--, step++) {
+    const c = await pxChunk(m.chunks[i]); if (!c) return null;
+    const k = c.idx[code]; if (k == null) continue;
+    const row = c.c[k];
+    for (let j = c.d.length - 1; j >= 0; j--) if (c.d[j] <= d && row[j] != null) return { d: c.d[j], p: row[j] };
+  }
+  return null;
+}
+async function sinceWritten(code, date){
+  const m = await pxMeta(); if (!m) return null;
+  const [a, b] = await Promise.all([priceOn(code, date), priceOn(code, m.asof)]);
+  return a && b ? { from: a, to: b, chg: (b.p / a.p - 1) * 100 } : null;
+}
+const pctTxt = v => (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+const fmtW = v => Math.round(v).toLocaleString("ko-KR");
+function openChart(code){
+  try { if (window.parent !== window && window.parent.openStock) { window.parent.openStock(code); return; } } catch {}
+  try { localStorage.setItem("kd_stock", JSON.stringify(code)); } catch {}
+  location.href = "../#stock";
+}
+window.openChart = openChart;
+/** 목록 카드의 종목 칩에 '작성 후 %' 채우기 */
+function fillChips(root){
+  root.querySelectorAll(".chip.tk[data-code][data-date]").forEach(async el => {
+    const r = await sinceWritten(el.dataset.code, el.dataset.date); if (!r) return;
+    el.insertAdjacentHTML("beforeend", ` <b class="pc ${r.chg > 0 ? "pu" : r.chg < 0 ? "pd" : ""}">${pctTxt(r.chg)}</b>`);
+  });
+}
+const tickersText = ts => (ts || []).map(t => t.code ? `${t.code} ${t.name}` : t.name).join(", ");
+const tkKey = t => t.code || t.name;
+const imgIds = body => [...String(body || "").matchAll(/\(img:([\w-]+)\)/g)].map(m => m[1]);
+const excerpt = body => String(body || "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/[#>*_`\-\[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
+
+async function imageURL(id){
+  if (!imgCache.has(id)) imgCache.set(id, store.getImage(id));
+  return imgCache.get(id);
+}
+
+function renderMarkdown(md){
+  const html = marked.parse(String(md || "").replace(/\(img:([\w-]+)\)/g, "(#img-$1)"), { breaks: true, gfm: true });
+  return DOMPurify.sanitize(html);
+}
+async function hydrateImages(root){
+  for (const im of root.querySelectorAll('img[src^="#img-"]')) {
+    const id = im.getAttribute("src").slice(5);
+    im.removeAttribute("src"); im.alt = im.alt || "이미지 불러오는 중";
+    imageURL(id).then(u => { if (u) im.src = u; else im.alt = "(삭제된 이미지)"; });
+    im.onclick = () => { if (im.src) { $("#lightbox img").src = im.src; $("#lightbox").style.display = "flex"; } };
+  }
+}
+
+async function loadPosts(force){
+  if (loaded && !force) return;
+  posts = await store.list();
+  posts.sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || "").localeCompare(a.createdAt || ""));
+  loaded = true;
+}
+
+// ---------------- 이미지 처리 ----------------
+function fileToImage(file){
+  return new Promise((ok, bad) => {
+    const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => ok(im); im.onerror = bad; im.src = r.result; };
+    r.onerror = bad; r.readAsDataURL(file);
+  });
+}
+async function compress(file){
+  const im = await fileToImage(file);
+  let maxW = 1600, q = 0.85, out = "";
+  for (let i = 0; i < 8; i++) {
+    const s = Math.min(1, maxW / im.width);
+    const c = document.createElement("canvas");
+    c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+    out = c.toDataURL("image/jpeg", q);
+    if (out.length <= MAX_IMG_BYTES) return out;
+    if (q > 0.6) q -= 0.1; else maxW = Math.round(maxW * 0.8);
+  }
+  throw new Error("이미지가 너무 커요");
+}
+
+// ---------------- 화면: 로그인 ----------------
+function viewLogin(msg = ""){
+  app.innerHTML = `
+  <div class="login">
+    <b>📒 투자일지</b>
+    <span class="hint">허용된 Google 계정으로만 읽고 쓸 수 있어요.</span>
+    <button class="btn pri" id="gl">Google로 로그인</button>
+    <span class="hint" style="text-align:center">또는 이메일로</span>
+    <form id="lf" style="display:grid;gap:8px">
+      <input type="email" id="em" placeholder="이메일" autocomplete="username" required>
+      <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" required>
+      <button class="btn">이메일로 로그인</button>
+    </form>
+    <div class="err" id="le">${esc(msg)}</div>
+  </div>`;
+  const tryIn = async (...args) => {
+    $("#le").textContent = "";
+    try { await store.signIn(...args); }
+    catch (err) {
+      const c = err.code || err.message;
+      $("#le").textContent = c === "auth/unauthorized-domain"
+        ? "이 주소가 Firebase 승인된 도메인에 없어요 (Authentication → 설정 → 승인된 도메인)"
+        : c === "auth/popup-blocked" ? "팝업이 차단됐어요. 브라우저에서 팝업을 허용해 주세요"
+        : c === "auth/operation-not-allowed" ? "Firebase에서 이 로그인 방법이 꺼져 있어요 (Authentication → 로그인 방법)"
+        : c === "auth/invalid-credential" ? "이메일이나 비밀번호가 틀렸어요" : "로그인 실패: " + c;
+    }
+  };
+  $("#gl").onclick = () => tryIn();
+  $("#lf").onsubmit = e => { e.preventDefault(); tryIn($("#em").value.trim(), $("#pw").value); };
+}
+
+// ---------------- 화면: 목록 ----------------
+function filtered(){
+  const q = filt.q.toLowerCase();
+  return posts.filter(p =>
+    (!filt.kind || p.kind === filt.kind) &&
+    (!filt.ticker || (p.tickers || []).some(t => tkKey(t) === filt.ticker)) &&
+    [...filt.tags].every(t => (p.tags || []).includes(t)) &&
+    (!q || [p.title, p.body, tickersText(p.tickers), (p.tags || []).join(" ")].join(" ").toLowerCase().includes(q)));
+}
+async function viewFeed(){
+  await loadPosts();
+  const allTags = [...new Set(posts.flatMap(p => p.tags || []))].sort();
+  const tks = new Map(); posts.forEach(p => (p.tickers || []).forEach(t => tks.set(tkKey(t), t)));
+  app.innerHTML = `
+  ${DEMO ? `<div class="banner">체험 모드예요. 글은 이 브라우저에만 저장돼요. 파일 위쪽 <code>FIREBASE_CONFIG</code>를 채우면 로그인해서 어디서든 쓸 수 있어요.</div>` : ""}
+  <div class="tools">
+    <input id="q" placeholder="제목·본문·종목·태그 검색" value="${esc(filt.q)}">
+    <select id="kf"><option value="">전체 유형</option>${KINDS.map(k => `<option ${k === filt.kind ? "selected" : ""}>${k}</option>`).join("")}</select>
+    <select id="tf"><option value="">전체 종목</option>${[...tks.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name))
+      .map(([k, t]) => `<option value="${esc(k)}" ${k === filt.ticker ? "selected" : ""}>${esc(t.name)}${t.code ? " · " + t.code : ""}</option>`).join("")}</select>
+  </div>
+  <div class="chips">${allTags.map(t => `<span class="chip ${filt.tags.has(t) ? "on" : ""}" data-t="${esc(t)}">#${esc(t)}</span>`).join("")}</div>
+  <div class="feed" id="feed"></div>`;
+  const draw = () => {
+    const list = filtered();
+    $("#feed").innerHTML = list.length ? list.map(p => {
+      const cover = p.cover || imgIds(p.body)[0];
+      return `<div class="post" data-id="${esc(p.id)}">
+        <div class="txt">
+          <div class="meta"><span class="kind k-${esc(p.kind)}">${esc(p.kind || "메모")}</span>${esc(p.date)}
+            ${(p.tickers || []).map(t => `<span class="chip tk" ${t.code ? `data-code="${esc(t.code)}" data-date="${esc(p.date)}"` : ""}>${esc(t.name)}</span>`).join("")}</div>
+          <h2>${esc(p.title || "(제목 없음)")}</h2>
+          <div class="ex">${esc(excerpt(p.body))}</div>
+          <div class="meta">${(p.tags || []).map(t => "#" + esc(t)).join(" ")}</div>
+        </div>
+        ${cover ? `<img class="thumb" data-img="${esc(cover)}" alt="">` : ""}
+      </div>`; }).join("")
+      : `<div class="empty">${posts.length ? "조건에 맞는 글이 없어요." : "아직 쓴 일지가 없어요. ✏️ 새 글로 시작해 보세요."}</div>`;
+    $("#feed").querySelectorAll(".post").forEach(el => el.onclick = () => go("#/post/" + el.dataset.id));
+    $("#feed").querySelectorAll("img[data-img]").forEach(im => imageURL(im.dataset.img).then(u => { if (u) im.src = u; }));
+    fillChips($("#feed"));
+  };
+  $("#q").oninput = e => { filt.q = e.target.value; draw(); };
+  $("#kf").onchange = e => { filt.kind = e.target.value; draw(); };
+  $("#tf").onchange = e => { filt.ticker = e.target.value; draw(); };
+  app.querySelectorAll(".chips .chip").forEach(c => c.onclick = () => {
+    const t = c.dataset.t; filt.tags.has(t) ? filt.tags.delete(t) : filt.tags.add(t); c.classList.toggle("on"); draw(); });
+  draw();
+}
+
+// ---------------- 화면: 글 보기 ----------------
+async function viewPost(id){
+  const p = posts.find(x => x.id === id) || await store.get(id);
+  if (!p) { app.innerHTML = `<div class="empty">글을 찾을 수 없어요.</div>`; return; }
+  app.innerHTML = `
+  <article>
+    <div class="meta"><span class="kind k-${esc(p.kind)}">${esc(p.kind || "메모")}</span>${esc(p.date)}
+      ${(p.tickers || []).map(t => `<span class="chip tk" data-k="${esc(tkKey(t))}">${esc(t.name)}${t.code ? " · " + t.code : ""}</span>`).join("")}</div>
+    <h1>${esc(p.title || "(제목 없음)")}</h1>
+    <div class="meta">${(p.tags || []).map(t => `<span class="chip" data-t="${esc(t)}">#${esc(t)}</span>`).join("")}</div>
+    ${(p.tickers || []).some(t => t.code) ? `<div class="since" id="since"><div class="hint">작성 당시 가격과 지금 불러오는 중…</div></div>` : ""}
+    <div class="body" id="pb">${renderMarkdown(p.body)}</div>
+    <div class="actions">
+      <button class="btn" onclick="go('#/')">← 목록</button><span style="flex:1"></span>
+      <button class="btn" onclick="go('#/edit/${esc(p.id)}')">수정</button>
+      <button class="btn danger" id="del">삭제</button>
+    </div>
+    <div class="hint" style="margin-top:8px">작성 ${esc(fmtTime(p.createdAt))}${p.updatedAt && p.updatedAt !== p.createdAt ? " · 수정 " + esc(fmtTime(p.updatedAt)) : ""}</div>
+  </article>`;
+  hydrateImages($("#pb"));
+  if ($("#since")) (async () => {
+    const ts = (p.tickers || []).filter(t => t.code), rs = await Promise.all(ts.map(t => sinceWritten(t.code, p.date)));
+    const sell = p.kind === "매도", el = $("#since"); if (!el) return;
+    const rows = ts.map((t, i) => { const r = rs[i]; if (!r) return `<tr><td>${esc(t.name)}</td><td colspan="4" class="hint">가격 없음 (수집 범위 밖)</td></tr>`;
+      return `<tr><td><a href="#" onclick="openChart('${esc(t.code)}');return false">${esc(t.name)}</a></td><td>${fmtW(r.from.p)}<small>${esc(r.from.d)}</small></td>
+        <td>${fmtW(r.to.p)}<small>${esc(r.to.d)}</small></td><td class="${r.chg > 0 ? "pu" : r.chg < 0 ? "pd" : ""}"><b>${pctTxt(r.chg)}</b></td>
+        <td class="hint">${sell ? (r.chg > 0 ? "판 뒤 더 올랐어요" : "판 뒤 내렸어요") : (r.chg >= 0 ? "그때보다 올랐어요" : "그때보다 내렸어요")}</td></tr>`; }).join("");
+    el.innerHTML = `<table><thead><tr><th>종목</th><th>작성일 종가</th><th>지금</th><th>${sell ? "매도 후" : "작성 후"}</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  })();
+  app.querySelectorAll(".chip[data-k]").forEach(c => c.onclick = () => { filt.ticker = c.dataset.k; go("#/"); });
+  app.querySelectorAll(".chip[data-t]").forEach(c => c.onclick = () => { filt.tags = new Set([c.dataset.t]); go("#/"); });
+  // 확인 창(confirm)은 일부 브라우저·앱 안에서 막혀서, 버튼을 한 번 더 누르는 방식으로 확인
+  const del = $("#del"); let armed = null;
+  del.onclick = async () => {
+    if (!armed) { del.textContent = "한 번 더 누르면 삭제 (이미지 포함)"; del.classList.add("arm");
+      armed = setTimeout(() => { armed = null; del.textContent = "삭제"; del.classList.remove("arm"); }, 4000); return; }
+    clearTimeout(armed); del.disabled = true; del.textContent = "삭제 중…";
+    try {
+      await store.remove(p.id);
+      for (const i of imgIds(p.body)) { try { await store.removeImage(i); } catch {} }
+      posts = posts.filter(x => x.id !== p.id); toast("삭제했어요"); go("#/");
+    } catch (err) { toast("삭제 실패: " + (err.code || err.message)); del.disabled = false; del.textContent = "삭제"; del.classList.remove("arm"); armed = null; }
+  };
+}
+
+// ---------------- 화면: 쓰기/수정 ----------------
+async function viewEdit(id, params){
+  const p = id ? (posts.find(x => x.id === id) || await store.get(id)) : null;
+  if (id && !p) { app.innerHTML = `<div class="empty">글을 찾을 수 없어요.</div>`; return; }
+  const preTk = params.get("code") ? `${params.get("code")} ${params.get("name") || ""}`.trim() : "";
+  const draftKey = "journal_draft_" + (id || "new");
+  let draft = null; try { draft = JSON.parse(localStorage.getItem(draftKey) || "null"); } catch {}
+  const v = draft || {
+    title: p?.title || "", date: p?.date || today(), kind: p?.kind || (params.get("kind") || "관찰"),
+    tickers: p ? tickersText(p.tickers) : preTk, tags: (p?.tags || []).join(" / "), body: p?.body || "" };
+  app.innerHTML = `
+  <div class="form">
+    ${draft ? `<div class="banner">저장하지 않은 임시 글을 불러왔어요. <a href="#" id="dropDraft">버리기</a></div>` : ""}
+    <div><label>제목</label><input id="title" value="${esc(v.title)}" placeholder="예) 삼성전자 2차 매수 — HBM 고객 다변화"></div>
+    <div class="row">
+      <div><label>날짜</label><input type="date" id="date" value="${esc(v.date)}"></div>
+      <div><label>유형</label><select id="kind">${KINDS.map(k => `<option ${k === v.kind ? "selected" : ""}>${k}</option>`).join("")}</select></div>
+      <div class="tkbox"><label>종목 (이름이나 코드를 치면 찾아줘요, 쉼표로 여러 개)</label><input id="tickers" value="${esc(v.tickers)}" placeholder="삼성전자, 하이닉스…" autocomplete="off"><ul class="tksug" id="tksug" hidden></ul></div>
+    </div>
+    <div><label>태그 (/ 로 구분)</label><input id="tags" value="${esc(v.tags)}" placeholder="반도체 / 실적 / 분할매수"></div>
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div class="tabs"><button class="btn on" id="tW">쓰기</button><button class="btn" id="tP">미리보기</button></div>
+        <span style="flex:1"></span>
+        <label class="btn" style="margin:0">🖼 이미지<input type="file" id="file" accept="image/*" multiple hidden></label>
+      </div>
+      <textarea id="body" placeholder="마크다운으로 쓰면 돼요. 이미지는 캡처 후 Ctrl+V로 붙여 넣거나 끌어다 놓으세요.
+
+## 근거
+-
+
+## 계획 / 손절 기준
+- ">${esc(v.body)}</textarea>
+      <div id="preview" class="body" hidden></div>
+      <div class="hint">이미지는 자동으로 줄여서 저장돼요 (장당 최대 약 850KB). 쓰는 중인 내용은 이 브라우저에 임시 저장돼요.</div>
+    </div>
+    <div class="actions" style="border:0;margin:0;padding:0">
+      <button class="btn" id="cancel">취소</button><span style="flex:1"></span>
+      <button class="btn pri" id="save">저장</button>
+    </div>
+  </div>`;
+  const body = $("#body");
+  const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify(collect(false))); } catch {} };
+  const collect = (parse = true) => ({
+    title: $("#title").value.trim(), date: $("#date").value, kind: $("#kind").value,
+    tickers: parse ? parseTickers($("#tickers").value) : $("#tickers").value,
+    tags: parse ? $("#tags").value.split("/").map(s => s.trim()).filter(Boolean) : $("#tags").value,
+    body: body.value });
+  app.querySelectorAll("input,select,textarea").forEach(el => el.addEventListener("input", saveDraft));
+  tickerSuggest($("#tickers"), $("#tksug"), saveDraft);
+  if ($("#dropDraft")) $("#dropDraft").onclick = e => { e.preventDefault(); localStorage.removeItem(draftKey); viewEdit(id, params); };
+
+  const insertAt = text => {
+    const s = body.selectionStart, e = body.selectionEnd;
+    body.value = body.value.slice(0, s) + text + body.value.slice(e);
+    body.selectionStart = body.selectionEnd = s + text.length; saveDraft();
+  };
+  const addImages = async files => {
+    for (const f of files) {
+      if (!f.type.startsWith("image/")) continue;
+      const mark = `![업로드 중 ${f.name || ""}]()`; insertAt(mark + "\n");
+      try {
+        const data = await compress(f); const iid = await store.putImage(data);
+        imgCache.set(iid, Promise.resolve(data));
+        body.value = body.value.replace(mark, `![](img:${iid})`); saveDraft();
+      } catch (err) { body.value = body.value.replace(mark + "\n", ""); toast("이미지 실패: " + err.message); }
+    }
+  };
+  body.addEventListener("paste", e => { const fs = [...e.clipboardData.files]; if (fs.length) { e.preventDefault(); addImages(fs); } });
+  body.addEventListener("dragover", e => { e.preventDefault(); body.classList.add("drop"); });
+  body.addEventListener("dragleave", () => body.classList.remove("drop"));
+  body.addEventListener("drop", e => { e.preventDefault(); body.classList.remove("drop"); addImages([...e.dataTransfer.files]); });
+  $("#file").onchange = e => { addImages([...e.target.files]); e.target.value = ""; };
+
+  $("#tW").onclick = () => { $("#tW").classList.add("on"); $("#tP").classList.remove("on"); body.hidden = false; $("#preview").hidden = true; };
+  $("#tP").onclick = () => { $("#tP").classList.add("on"); $("#tW").classList.remove("on"); body.hidden = true;
+    const pv = $("#preview"); pv.hidden = false; pv.innerHTML = renderMarkdown(body.value); hydrateImages(pv); };
+
+  $("#cancel").onclick = () => { go(id ? "#/post/" + id : "#/"); if (body.value !== (p?.body || "")) toast("쓰던 내용은 임시 글로 남아 있어요"); };
+  $("#save").onclick = async () => {
+    const d = collect(); const now = new Date().toISOString();
+    d.tickers = await fillCodes(d.tickers);
+    if (!d.title && !d.body.trim()) { toast("제목이나 내용을 써 주세요"); return; }
+    $("#save").disabled = true;
+    try {
+      const data = { ...d, cover: imgIds(d.body)[0] || null, updatedAt: now, ...(id ? {} : { createdAt: now }) };
+      const nid = await store.save(id, data);
+      // 수정하면서 본문에서 뺀 이미지 정리
+      if (p) for (const i of imgIds(p.body)) if (!d.body.includes(`img:${i}`)) { try { await store.removeImage(i); } catch {} }
+      localStorage.removeItem(draftKey);
+      await loadPosts(true); toast("저장했어요"); go("#/post/" + nid);
+    } catch (err) { toast("저장 실패: " + err.message); $("#save").disabled = false; }
+  };
+}
+
+// ---------------- 라우터 ----------------
+async function route(){
+  if (!user) return;
+  const [path, qs] = location.hash.slice(1).split("?");
+  const parts = (path || "/").split("/").filter(Boolean);
+  const params = new URLSearchParams(qs || "");
+  window.scrollTo(0, 0);
+  try {
+    if (parts[0] === "post" && parts[1]) { await loadPosts(); await viewPost(parts[1]); }
+    else if (parts[0] === "new") await viewEdit(null, params);
+    else if (parts[0] === "edit" && parts[1]) { await loadPosts(); await viewEdit(parts[1], params); }
+    else await viewFeed();
+  } catch (err) {
+    app.innerHTML = `<div class="empty">불러오기 실패: ${esc(err.code || err.message)}<br><span class="hint">권한 오류(permission-denied)라면 허용된 계정이 아니거나 Firestore 규칙이 아직 안 바뀐 거예요.</span>
+      <br><br><button class="btn" onclick="document.getElementById('outBtn').click()">다른 계정으로 로그인</button></div>`;
+  }
+}
+window.addEventListener("hashchange", route);
+// 대시보드(코스피 데일리) 안에 들어가 있으면: 머리글 간소화, 높이·주소를 대시보드에 알려 줌
+const EMBED = window.parent !== window;
+if (EMBED) {
+  document.documentElement.classList.add("embed");
+  try { const t = localStorage.getItem("kd_theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+  window.addEventListener("message", e => { if (e.origin === location.origin && e.data?.type === "theme") document.documentElement.dataset.theme = e.data.t; });
+  const tell = () => { try { window.parent.postMessage({ type: "journal", h: document.documentElement.scrollHeight, path: location.hash }, location.origin); } catch {} };
+  new ResizeObserver(tell).observe(document.body);
+  window.addEventListener("hashchange", () => { tell(); try { window.parent.postMessage({ type: "journal-top" }, location.origin); } catch {} });
+  tell();
+}
+$("#outBtn").onclick = () => store.signOut();
+
+store.init(u => {
+  user = u; loaded = false; posts = [];
+  $("#who").textContent = u ? (u.email === "체험 모드" ? u.email : "로그인됨") : "";
+  $("#newBtn").hidden = !u; $("#outBtn").hidden = !u || DEMO;
+  if (u) route(); else viewLogin();
+}).catch(err => { app.innerHTML = `<div class="empty">Firebase 연결 실패: ${esc(err.message)}</div>`; });
+</script>
+</body>
+</html>
