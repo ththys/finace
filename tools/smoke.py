@@ -52,8 +52,8 @@ def fake_live(route):
             {"cd": "000660", "nv": 1240000, "cv": 14000, "cr": 1.12, "rf": "5"},
             {"cd": "462870", "nv": 27000, "pcv": 26700, "cv": 300, "cr": 1.12, "rf": "2"}]},
         {"name": "SERVICE_INDEX", "datas": [
-            {"cd": "KOSPI", "nv": 536000, "pcv": 534273, "cv": 1727, "cr": 0.32, "rf": "2"},
-            {"cd": "KOSDAQ", "nv": 69000, "pcv": 69653, "cv": 653, "cr": 0.94, "rf": "5"}]}]}}
+            {"cd": "KOSPI", "nv": 536000, "cv": 1727, "cr": 0.32, "rf": "2"},
+            {"cd": "KOSDAQ", "nv": 69000, "cv": 653, "cr": 0.94, "rf": "5"}]}]}}
     route.fulfill(status=200, content_type="text/javascript", body=f"{cb}({json.dumps(js)});")
 
 

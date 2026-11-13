@@ -532,7 +532,7 @@ function jsonp(url, ms = 5000) {
 }
 async function livePrices(tickers, prevClose = {}) {
   const q = [tickers.length ? "SERVICE_ITEM:" + tickers.join(",") : "", "SERVICE_INDEX:KOSPI,KOSDAQ"].filter(Boolean).join("|");
-  const js = await jsonp("https://polling.finance.naver.com/api/realtime.nhn?query=" + encodeURIComponent(q));
+  const js = await jsonp("https://polling.finance.naver.com/api/realtime?query=" + encodeURIComponent(q));
   const out = {}, num = v => v == null || v === "" ? null : +String(v).replace(/,/g, "");
   for (const a of js?.result?.areas || []) for (const x of a.datas || []) {
     let nv = num(x.nv), pcv = num(x.pcv), cv = num(x.cv), cr = num(x.cr); if (!nv) continue;
