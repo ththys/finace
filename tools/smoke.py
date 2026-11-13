@@ -13,6 +13,7 @@ import difflib
 import functools
 import glob
 import hashlib
+import json
 import http.server
 import os
 import random
@@ -39,6 +40,21 @@ LOGIN_JS = """([reps, watch, draw]) => {
            deleteDoc: async () => {}, getDocs: async () => ({ forEach() {}, docs: [] }), collection: (db, c) => c };
   if (typeof DRAW !== 'undefined') { DRAW.all = null; DRAW.key = null; }
 }"""
+
+
+def fake_live(route):
+    """네이버 실시간 시세 JSONP 흉내. 지수는 100배 값, 하락은 부호 없는 cr + rf=5 로 (실제 응답과 같은 까다로운 경우)"""
+    from urllib.parse import urlparse, parse_qs
+    cb = parse_qs(urlparse(route.request.url).query).get("_callback", ["cb"])[0]
+    js = {"resultCode": "success", "result": {"areas": [
+        {"name": "SERVICE_ITEM", "datas": [
+            {"cd": "005930", "nv": 210000, "pcv": 208000, "cv": 2000, "cr": 0.96, "rf": "2"},
+            {"cd": "000660", "nv": 1240000, "cv": 14000, "cr": 1.12, "rf": "5"},
+            {"cd": "462870", "nv": 27000, "pcv": 26700, "cv": 300, "cr": 1.12, "rf": "2"}]},
+        {"name": "SERVICE_INDEX", "datas": [
+            {"cd": "KOSPI", "nv": 536000, "pcv": 534273, "cv": 1727, "cr": 0.32, "rf": "2"},
+            {"cd": "KOSDAQ", "nv": 69000, "pcv": 69653, "cv": 653, "cr": 0.94, "rf": "5"}]}]}}
+    route.fulfill(status=200, content_type="text/javascript", body=f"{cb}({json.dumps(js)});")
 
 
 def fake_reports():
@@ -100,6 +116,7 @@ def scenario(base, out):
         pg.route("https://www.gstatic.com/**", lambda r: r.abort())          # Firebase 는 가짜로 대신함
         pg.route("https://fonts.googleapis.com/**", lambda r: r.fulfill(status=200, body="", content_type="text/css"))
         pg.route("https://fonts.gstatic.com/**", lambda r: r.abort())
+        pg.route("https://polling.finance.naver.com/**", fake_live)      # 실시간 시세도 가짜 (화면이 매번 같게)
         pg.on("pageerror", lambda e: errs.append(f"[{cur[0]}] {e}"))
         pg.on("console", lambda m: m.type == "error" and not any(x in m.text for x in ("gstatic", "ERR_FAILED", "status of 404")) and errs.append(f"[{cur[0]}] console: {m.text[:200]}"))
         ready = "typeof S !== 'undefined' && S.meta && S.home"

@@ -272,6 +272,7 @@ function sortableTable(el, cols, rows, { key, asc = false, onRow, selected } = {
     if (onRow) el.querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => onRow(rows.find(r => String(r.id) === tr.dataset.id)));
   };
   draw();
+  return { draw };
 }
 const pctCell = (v, heat) => `<td class="${cls(v)} ${heat ? "heat" : ""}" style="${heat ? heatStyle(v, heat) : ""}">${fmtPct(v)}</td>`;
 
@@ -512,3 +513,44 @@ function xyChart(el, xs, series, { height = 240, xfmt = v => v.toFixed(0), yfmt 
   };
   const u = new uPlot(opts, [xs, ...series.map(s => s.data)], el); S.charts.push(u); return u;
 }
+
+
+/* ---------------- 실시간 가격 (네이버 증권 시세, 브라우저에서 바로) ----------------
+   CORS 가 막혀 있어 JSONP(<script>)로 받음. 형식: {result:{areas:[{name:"SERVICE_ITEM"|"SERVICE_INDEX", datas:[{cd,nv,pcv,cv,cr,rf}]}]}}
+   지수는 값이 100배로 오는 경우가 있어 전일 종가와 비교해 맞춤. 실패하면 null → 화면은 마지막 종가 그대로 */
+const LIVE_IDX = { KOSPI: "IDX_KOSPI", KOSDAQ: "IDX_KOSDAQ" };
+function jsonp(url, ms = 5000) {
+  return new Promise((ok, no) => {
+    const fn = "__kd_cb" + Math.random().toString(36).slice(2), sc = document.createElement("script");
+    const end = () => { delete window[fn]; sc.remove(); clearTimeout(tm); };
+    const tm = setTimeout(() => { end(); no(new Error("응답 없음")); }, ms);
+    window[fn] = x => { end(); ok(x); };
+    sc.onerror = () => { end(); no(new Error("불러오기 실패")); };
+    sc.charset = "euc-kr"; sc.src = url + (url.includes("?") ? "&" : "?") + "_callback=" + fn;
+    document.head.appendChild(sc);
+  });
+}
+async function livePrices(tickers, prevClose = {}) {
+  const q = [tickers.length ? "SERVICE_ITEM:" + tickers.join(",") : "", "SERVICE_INDEX:KOSPI,KOSDAQ"].filter(Boolean).join("|");
+  const js = await jsonp("https://polling.finance.naver.com/api/realtime.nhn?query=" + encodeURIComponent(q));
+  const out = {}, num = v => v == null || v === "" ? null : +String(v).replace(/,/g, "");
+  for (const a of js?.result?.areas || []) for (const x of a.datas || []) {
+    let nv = num(x.nv), pcv = num(x.pcv), cv = num(x.cv), cr = num(x.cr); if (!nv) continue;
+    const key = a.name === "SERVICE_INDEX" ? LIVE_IDX[x.cd] || x.cd : x.cd;
+    const ref = prevClose[key] || pcv;
+    if (ref && nv / ref > 30) { nv /= 100; if (pcv) pcv /= 100; if (cv != null) cv /= 100; }   // 지수 100배 표기
+    const down = ["4", "5"].includes(String(x.rf));
+    if (cr != null && down && cr > 0) cr = -cr;
+    const d1 = pcv ? (nv / pcv - 1) * 100 : cr;
+    out[key] = { p: nv, d1, prev: pcv };
+  }
+  if (!Object.keys(out).length) throw new Error("빈 응답");
+  out._at = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Seoul" });
+  return out;
+}
+/** 한국 장 시간(평일 8:50~15:40)인지 */
+function marketOpen() {
+  const k = new Date(Date.now() + 9 * 3600e3), m = k.getUTCHours() * 60 + k.getUTCMinutes(), w = k.getUTCDay();
+  return w >= 1 && w <= 5 && m >= 530 && m <= 940;
+}
+const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);

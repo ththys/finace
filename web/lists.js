@@ -49,34 +49,64 @@ async function renderWatch(start) {
   const ts = allW.filter(t => !g || (g === "_none" ? !FB.watch[t].group : FB.watch[t].group === g));
   if (!allW.length) { el.innerHTML = `<div class="empty">${FB.err ? "읽기 실패: " + esc(FB.err) : "아직 관심종목이 없어요. 종목 차트에서 ☆ 를 눌러 추가하세요."}</div>`; return; }
   const all = S.stocks.map(s => s.t);
-  const [pd, rdd, p1] = await Promise.all([periodData(start, all), recentDD(ts), loadRange(isoMinus(S.meta.asof, 10))]);
+  const [pd, rdd, p1, M] = await Promise.all([periodData(start, all), recentDD(ts), loadRange(isoMinus(S.meta.asof, 10)), loadX("macro").catch(() => null)]);
   const secT = {}; S.stocks.forEach(s => (secT[s.s] ||= []).push(s.t));
-  const secIdx = {};
+  const secIdx = {}, prev = {};
+  Object.values(LIVE_IDX).forEach(k => { if (M?.[k]) prev[k] = M[k].v.at(-1); });
+  ts.forEach(t => { const r = ffill(p1.series(t)); if (r.at(-1)) prev[t] = r.at(-1); });
+  clearInterval(S.liveTm);
+  let L = null, liveErr = "";
+  try { L = await livePrices(ts, prev); } catch (e) { liveErr = e.message; }
+  if (!document.body.contains(el)) return;
   const rows = ts.map(t => {
     const s = S.byT[t], w = FB.watch[t], x = pd.s[t], q = rdd[t] || {};
     const raw = ffill(p1.series(t)), d1 = raw.length > 1 && raw.at(-2) ? (raw.at(-1) / raw.at(-2) - 1) * 100 : null;
-    if (!s || !x) return { id: t, n: w.name || t, s: s?.s || "수집 전", miss: true, fav: w.favorite, trk: w.track_reports, grp: w.group };
+    if (!s || !x) return { id: t, n: w.name || t, s: s?.s || "수집 전", miss: true, fav: w.favorite, trk: w.track_reports, grp: w.group, p: L?.[t]?.p ?? null, d1: L?.[t]?.d1 ?? null };
     const v = ffill(x.v), ret = (v.at(-1) - 1) * 100;
     const si = secIdx[s.s] ||= capIndex(pd, secT[s.s]);
     return { id: t, n: s.n, s: s.s, d1, ret, vs: si ? ret - (si.at(-1) - 1) * 100 : null, mdd: ddStats(v, pd.d).mdd,
-      m20: q.mdd20, m60: q.mdd60, cur: q.cur60, p: x.last, fav: w.favorite, trk: w.track_reports, grp: w.group };
+      m20: q.mdd20, m60: q.mdd60, cur: q.cur60, p: x.last, base: x.base, fav: w.favorite, trk: w.track_reports, grp: w.group };
   });
+  const applyLive = () => rows.forEach(r => { const q = L?.[r.id]; if (!q) return; r.p = q.p; if (q.d1 != null) r.d1 = q.d1; if (r.base) r.ret = (q.p / r.base - 1) * 100; });
+  applyLive();
+  // 지수: 기준일 = 100 으로 맞춤
+  const idx = Object.entries({ IDX_KOSPI: "코스피", IDX_KOSDAQ: "코스닥" }).map(([k, nm]) => {
+    const ser = M?.[k]; if (!ser) return null;
+    let j = -1; const vals = pd.d.map(d => { while (j + 1 < ser.d.length && ser.d[j + 1] <= d) j++; return j >= 0 ? ser.v[j] : null; });
+    const base = vals[0]; if (!base) return null;
+    return { k, nm, base, last: ser.v.at(-1), data: vals.map(x => x == null ? null : x / base * 100) };
+  }).filter(Boolean);
+  const strip = () => {
+    const items = idx.map(o => { const q = L?.[o.k], p = q?.p ?? o.last, ch = q?.d1 ?? (o.data.length > 1 ? (o.data.at(-1) / o.data.at(-2) - 1) * 100 : null);
+      return `<span><b>${o.nm}</b> <span class="num">${p.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span class="num ${cls(ch)}">${fmtPct(ch)}</span></span>`; });
+    const st = L ? `<span class="muted">실시간 ${L._at}${marketOpen() ? " · 30초마다 갱신" : " · 장 마감"}</span>`
+      : `<span class="muted">실시간 가격을 못 받았어요 (${esc(liveErr)}) · ${S.meta.asof} 종가</span>`;
+    return `<div class="small" style="display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline">${items.join("")}${st}</div>`;
+  };
   destroyCharts();
   el.innerHTML = `<div class="tabs" id="wg" style="margin-bottom:10px">${[["", `전체 ${allW.length}`], ...groups.map(x => [x, `${x} ${allW.filter(t => FB.watch[t].group === x).length}`]), ["_none", "그룹 없음"]]
       .map(([k, l]) => `<button data-k="${esc(k)}" class="${k === g ? "on" : ""}">${esc(l)}</button>`).join("")}</div>
-    <div class="chart" style="margin-bottom:14px"><h3>비교 <small>기준일 ${pd.baseDate} = 100 · 범례를 누르면 켜고 꺼요</small></h3><div id="wc"></div></div>
+    <div id="wlive" style="margin-bottom:10px">${strip()}</div>
+    <div class="chart" style="margin-bottom:14px"><h3>비교 <small>기준일 ${pd.baseDate} = 100 · 점선은 지수 · 범례를 누르면 켜고 꺼요</small></h3><div id="wc"></div></div>
     <datalist id="grplist">${groups.map(x => `<option value="${esc(x)}">`).join("")}</datalist>
-    <div id="wt"></div><p class="small muted" style="margin-top:8px">그룹 칸에 이름을 쓰면 묶여요 (예: 반도체, 장기보유). 현재 낙폭은 최근 60거래일 고점 대비. '수집 전' 종목은 집 PC가 다음 업데이트 때 가격을 받아와요.</p>`;
+    <div id="wt"></div><p class="small muted" style="margin-top:8px">현재가·오늘은 장중엔 네이버 실시간 시세, 못 받으면 마지막 종가. 그룹 칸에 이름을 쓰면 묶여요 (예: 반도체, 장기보유). 현재 낙폭은 최근 60거래일 고점 대비. '수집 전' 종목은 집 PC가 다음 업데이트 때 가격을 받아와요.</p>`;
   tabsBind("#wg", k => { store.set("wgroup", k); renderWatch(start); });
+  // 차트: 평일이고 오늘 데이터가 아직 없으면 실시간 값으로 오늘 점을 이어 붙임
+  const wd = new Date(Date.now() + 9 * 3600e3).getUTCDay(), addToday = L && wd >= 1 && wd <= 5 && kstToday() > pd.d.at(-1);
+  const dd = addToday ? [...pd.d, kstToday()] : pd.d;
   const live = rows.filter(r => !r.miss).sort((x, y) => (y.ret ?? -1e9) - (x.ret ?? -1e9)).slice(0, 16);
-  if (live.length) lineChart($("#wc"), pd.d, live.map((r, i) => ({ label: r.n, data: ffill(pd.s[r.id].v).map(x => x == null ? null : x * 100),
-    color: `hsl(${(i * 137.5) % 360} 55% ${isDark() ? 65 : 42}%)`, width: 1.6 })), { ref: 100, height: 280 });
+  const ser = live.map((r, i) => { const v = ffill(pd.s[r.id].v).map(x => x == null ? null : x * 100);
+    if (addToday) v.push(L[r.id] ? L[r.id].p / r.base * 100 : v.at(-1));
+    return { label: r.n, data: v, color: `hsl(${(i * 137.5) % 360} 55% ${isDark() ? 65 : 42}%)`, width: 1.6 }; });
+  idx.forEach((o, i) => { const v = [...o.data]; if (addToday) v.push(L[o.k] ? L[o.k].p / o.base * 100 : v.at(-1));
+    ser.push({ label: o.nm, data: v, color: i ? css("--sub") : css("--ink"), width: 2.2, dash: [6, 4] }); });
+  if (ser.length) lineChart($("#wc"), dd, ser, { ref: 100, height: 280 });
   else $("#wc").innerHTML = `<p class="small muted">이 그룹엔 가격이 있는 종목이 없어요</p>`;
   $("#wt").addEventListener("change", async e => { const inp = e.target.closest("input.grp"); if (!inp) return;
     const t = inp.dataset.t, val = inp.value.trim();
     try { await FB.F.setDoc(FB.F.doc(FB.db, "watchlist", t), { group: val }, { merge: true }); FB.watch[t] = { ...FB.watch[t], group: val }; renderWatch(start); }
     catch (err) { inp.style.borderColor = "var(--up)"; inp.title = "저장 실패: " + err.message; } });
-  sortableTable($("#wt"), [
+  const tbl = sortableTable($("#wt"), [
     { k: "n", l: "종목", f: r => `<td class="name">${r.fav ? "★ " : ""}${esc(r.n)}<small>${r.id} · ${esc(r.s)}</small></td>` },
     { k: "grp", l: "그룹", f: r => `<td><input class="grp" list="grplist" data-t="${r.id}" value="${esc(r.grp || "")}" placeholder="–" onclick="event.stopPropagation()" aria-label="그룹"></td>` },
     { k: "p", l: "현재가", f: r => `<td>${fmtNum(r.p)}</td>` },
@@ -88,6 +118,13 @@ async function renderWatch(start) {
     { k: "m60", l: "60일 MDD", f: r => `<td class="down">${fmtPct(r.m60)}</td>` },
     { k: "cur", l: "현재 낙폭", f: r => `<td class="${r.cur < -0.005 ? "down" : ""}">${fmtPct(r.cur)}</td>` },
   ], rows, { key: "ret", onRow: r => !r.miss && openStock(r.id) });
+  if (L && marketOpen()) S.liveTm = setInterval(async () => {
+    if (!document.body.contains(el) || !$("#wlive")) return clearInterval(S.liveTm);
+    if (!marketOpen() || document.hidden) return;
+    try { L = await livePrices(ts, prev); } catch { return; }
+    applyLive(); $("#wlive").innerHTML = strip();
+    if (!document.activeElement?.matches("input.grp")) tbl.draw();
+  }, 30000);
 }
 
 /* ---------------- 스크리너 ---------------- */
