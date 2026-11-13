@@ -29,10 +29,14 @@ function renderTape() {
   $("#tape").innerHTML = `
     <div class="cell"><span class="lbl">시장 · ${esc(m.name)}</span><span class="big ${cls(m.chg["1D"])}">${fmtPct(m.chg["1D"])}</span></div>
     ${sparkSVG(m.spark.v)}
-    ${m.kq ? `<div class="cell"><span class="lbl">코스닥</span><span class="num ${cls(m.kq["1D"])}">${fmtPct(m.kq["1D"])}</span></div>` : ""}
+    ${m.kq ? `<div class="cell kq"><span class="lbl">코스닥</span><span class="num ${cls(m.kq["1D"])}">${fmtPct(m.kq["1D"])}</span></div>` : ""}
     ${["1W", "1M", "3M", "YTD", "1Y"].map(k => `<div class="cell"><span class="lbl">${k === "1W" ? "1주" : k === "1M" ? "1개월" : k === "3M" ? "3개월" : k === "1Y" ? "1년" : k}</span><span class="num ${cls(m.chg[k])}">${fmtPct(m.chg[k])}</span></div>`).join("")}
     <div class="cell"><span class="lbl">상승 ${b.up} · 하락 ${b.down} · 보합 ${b.flat}</span>
       <span class="breadth"><i style="width:${b.up / tot * 100}%;background:var(--up)"></i><i style="width:${b.flat / tot * 100}%;background:var(--flat)"></i><i style="width:${b.down / tot * 100}%;background:var(--down)"></i></span></div>`;
+  const liveIdx = async () => { try { const L = await livePrices([]); const cell = (k, nm) => L[k] ? `<div class="cell live"><span class="lbl">${nm} ${L._at.slice(0, 5)}</span><span class="num ${cls(L[k].d1)}">${L[k].p.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${fmtPct(L[k].d1)}</span></div>` : "";
+      $("#tape").querySelectorAll(".cell.live").forEach(x => x.remove()); $("#tape").insertAdjacentHTML("afterbegin", cell("IDX_KOSPI", "코스피") + cell("IDX_KOSDAQ", "코스닥"));
+      if (L.IDX_KOSDAQ) $("#tape .cell.kq")?.remove(); } catch {} };
+  liveIdx(); liveLoop("tape", liveIdx, () => !!$("#tape"), 60000);
   const d = new Date(h.asof + "T00:00:00"), wd = "일월화수목금토"[d.getDay()];
   $("#dateline").innerHTML = `<b>${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${wd})</b> 마감 기준<br>코스피 ${S.home.market.n?.KOSPI ?? ""} · 코스닥 ${S.home.market.n?.KOSDAQ ?? ""}종목 · 업데이트 ${esc(S.meta.built)}`;
 }

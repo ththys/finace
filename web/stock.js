@@ -504,8 +504,13 @@ async function renderStock(t, start, listedNote = null) {
     <div><div class="lbl">현재 낙폭</div><div class="v ${st.cur < -0.005 ? "down" : ""}">${fmtPct(st.cur)}</div><div class="s">기간 고점 대비</div></div>`;
   const pxmode = store.get("pxmode", "price");
   { const cl = v.map(x => x == null ? null : x * me.base), pv = cl.length > 1 ? cl.at(-2) : null, ch = pv ? me.last - pv : null;
-    $("#sprice").innerHTML = `<b class="num ${cls(ch)}">${fmtNum(me.last)}</b>` + (ch == null ? "" :
-      ` <span class="num ${cls(ch)}">${ch > 0 ? "▲" : ch < 0 ? "▼" : ""}${fmtNum(Math.abs(ch))} (${fmtPct(ch / pv * 100)})</span>`) + ` <small class="muted">${pd.d.at(-1)} 종가</small>`; }
+    const show = (p, ch, pct, note) => `<b class="num ${cls(ch)}">${fmtNum(p)}</b>` + (ch == null ? "" :
+      ` <span class="num ${cls(ch)}">${ch > 0 ? "▲" : ch < 0 ? "▼" : ""}${fmtNum(Math.abs(ch))} (${fmtPct(pct)})</span>`) + ` <small class="muted">${note}</small>`;
+    $("#sprice").innerHTML = `<span id="spx">${show(me.last, ch, ch == null ? null : ch / pv * 100, pd.d.at(-1) + " 종가")}</span>`;
+    const upd = async () => { try { const L = await livePrices([t], { [t]: me.last }), q = L[t]; if (!q || !$("#spx") || S.tok !== tok) return;
+        const pc = q.prev || q.p / (1 + q.d1 / 100); $("#spx").innerHTML = show(q.p, q.p - pc, q.d1, `실시간 ${L._at}`); }
+      catch (e) { const x = $("#spx small"); if (x && S.tok === tok) x.textContent = `${pd.d.at(-1)} 종가 (실시간 못 받음: ${e.message})`; } };
+    upd(); liveLoop("stock", upd, () => S.tok === tok && !!$("#spx")); }
   $("#c1s").textContent = (listedNote ? `${listedNote} 상장(데이터 시작) 이후만 · ` : "") + (pxmode === "price" ? "원" : `기준일 ${pd.baseDate} = 100 · 섹터·시장과 비교`);
   // 이동평균·52주 고저 (기간 앞 1년치까지 받아 계산)
   const wraw = ffill(wide.series(t)), wm = Object.fromEntries(wide.dates.map((d, i) => [d, i]));

@@ -537,7 +537,7 @@ async function livePrices(tickers, prevClose = {}) {
   for (const a of js?.result?.areas || []) for (const x of a.datas || []) {
     let nv = num(x.nv), pcv = num(x.pcv), cv = num(x.cv), cr = num(x.cr); if (!nv) continue;
     const key = a.name === "SERVICE_INDEX" ? LIVE_IDX[x.cd] || x.cd : x.cd;
-    const ref = prevClose[key] || pcv;
+    const ref = prevClose[key] || (a.name === "SERVICE_INDEX" ? 20000 / 30 : pcv);
     if (ref && nv / ref > 30) { nv /= 100; if (pcv) pcv /= 100; if (cv != null) cv /= 100; }   // 지수 100배 표기
     const down = ["4", "5"].includes(String(x.rf));
     if (cr != null && down && cr > 0) cr = -cr;
@@ -554,3 +554,9 @@ function marketOpen() {
   return w >= 1 && w <= 5 && m >= 530 && m <= 940;
 }
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+
+/** 장중이면 ms 마다 fn 실행 (화면이 바뀌면 alive() 가 false → 멈춤) */
+function liveLoop(name, fn, alive, ms = 30000) {
+  clearInterval(S["lt_" + name]);
+  S["lt_" + name] = setInterval(() => { if (!alive()) return clearInterval(S["lt_" + name]); if (marketOpen() && !document.hidden) fn(); }, ms);
+}
