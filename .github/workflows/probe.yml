@@ -5,16 +5,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for u in \
-            "https://polling.finance.naver.com/api/realtime.nhn?query=SERVICE_ITEM:005930|SERVICE_INDEX:KOSPI&_callback=cb" \
-            "https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:005930&_callback=cb" \
-            "https://polling.finance.naver.com/api/realtime/domestic/stock/005930" \
-            "https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI" \
-            "https://m.stock.naver.com/api/stock/005930/basic" \
-            "https://m.stock.naver.com/api/index/KOSPI/basic" \
-            "https://api.stock.naver.com/stock/005930/basic" \
-            "https://query1.finance.yahoo.com/v8/finance/chart/005930.KS?range=1d&interval=1d" "https://api.finance.naver.com/service/itemSummary.nhn?itemcode=005930" ; do
-            echo "=================== $u"
-            curl -s -m 15 -D - -o body.txt -H "Referer: https://ththys.github.io/" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131 Safari/537.36" "$u" | grep -iE "^HTTP|content-type|access-control|x-content-type|location"
-            head -c 400 body.txt | iconv -f euc-kr -t utf-8 2>/dev/null || head -c 400 body.txt; echo
-          done
+          curl -s -m 15 -D - -H "Referer: https://ththys.github.io/" "https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:005930,000660%7CSERVICE_INDEX:KOSPI,KOSDAQ&_callback=cb" | iconv -f euc-kr -t utf-8 | python3 -c "
+          import sys,re,json
+          t=sys.stdin.read(); print(t.split('\r\n\r\n')[0]); b=t.split('\r\n\r\n',1)[1]
+          j=json.loads(b[b.index('(')+1:b.rindex(')')])
+          for a in j['result']['areas']:
+            for d in a['datas']: print(a['name'], {k:d.get(k) for k in ('cd','nv','pcv','cv','cr','rf','ms')})
+          "
