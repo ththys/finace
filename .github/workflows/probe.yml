@@ -13,8 +13,8 @@ jobs:
             "https://m.stock.naver.com/api/stock/005930/basic" \
             "https://m.stock.naver.com/api/index/KOSPI/basic" \
             "https://api.stock.naver.com/stock/005930/basic" \
-            "https://query1.finance.yahoo.com/v8/finance/chart/005930.KS?range=1d&interval=1d" ; do
+            "https://query1.finance.yahoo.com/v8/finance/chart/005930.KS?range=1d&interval=1d" "https://api.finance.naver.com/service/itemSummary.nhn?itemcode=005930" ; do
             echo "=================== $u"
-            curl -s -m 15 -D - -o body.txt -H "Origin: https://ththys.github.io" -H "Referer: https://ththys.github.io/" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131 Safari/537.36" "$u" | grep -iE "^HTTP|content-type|access-control|x-content-type|location"
+            curl -s -m 15 -D - -o body.txt -H "Referer: https://ththys.github.io/" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131 Safari/537.36" "$u" | grep -iE "^HTTP|content-type|access-control|x-content-type|location"
             head -c 400 body.txt | iconv -f euc-kr -t utf-8 2>/dev/null || head -c 400 body.txt; echo
           done
