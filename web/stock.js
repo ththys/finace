@@ -278,6 +278,10 @@ async function candleView(t, s, me, ctype, start, tok, marks, shown) {
       setScale: [(uu, key) => { if (key !== "x") return; S.candleX = { k: zkey, min: uu.scales.x.min, max: uu.scales.x.max };
         (uu._subs || []).forEach(p => p.setScale("x", { min: uu.scales.x.min, max: uu.scales.x.max }));
         const [a0, b0] = visIdx(uu), rg = $("#viewrange");
+        cancelAnimationFrame(uu._vpRaf); uu._vpRaf = requestAnimationFrame(() => { const el = $("#vp"); if (!el || !bars.d[a0] || !bars.d[b0]) return;
+          const sl = k => bars[k].slice(a0, b0 + 1);
+          volumeProfile(el, sl("c"), sl("v"), me.last, 24, sl("h"), sl("l"));
+          $("#vps").textContent = `차트에 보이는 구간 ${bars.d[a0]} ~ ${bars.d[b0]} · 그날 고가~저가에 나눠 쌓음`; });
         if (rg && bars.d[a0] && bars.d[b0]) { const p0 = baseOf(uu), p1 = bars.c[b0], ch = p0 && p1 != null ? (p1 / p0 - 1) * 100 : null;
           rg.innerHTML = `보는 구간 ${bars.d[a0]} ~ ${bars.d[b0]} · ${b0 - a0 + 1}${unit === "거래일" ? "거래일" : unit === "주" ? "주" : "개월"}` +
             (ch == null ? "" : ` · 기준 ${fmtNum(p0)}${a0 > 0 ? `(${bars.d[a0 - 1].slice(2)} 종가)` : ""} → 끝 ${fmtNum(p1)} <span class="${ch >= 0 ? "up" : "down"}">${ch >= 0 ? "+" : ""}${ch.toFixed(1)}%</span>`); } }] },
@@ -456,20 +460,26 @@ function stockActions(t) {
     <a class="act" href="https://m.stock.naver.com/domestic/stock/${t}/research" target="_blank" rel="noopener">네이버 리서치 ↗</a>`;
   $("#favb").onclick = () => toggleWatch(t, "favorite").then(() => stockActions(t));
 }
-function volumeProfile(el, closes, vols, cur, bins = 24) {
-  const pts = closes.map((c, i) => [c, vols[i]]).filter(([c, v]) => c != null && v != null && v > 0);
+/** 매물대. hs·ls(고가·저가)가 있으면 그날 거래량을 고가~저가 범위에 고르게 나눠 쌓고, 없으면 종가 한 칸에 */
+function volumeProfile(el, closes, vols, cur, bins = 24, hs = null, ls = null) {
+  const pts = closes.map((c, i) => [c, vols[i], hs?.[i] ?? c, ls?.[i] ?? c]).filter(([c, v]) => c != null && v != null && v > 0);
   if (!pts.length) { el.innerHTML = `<p class="small muted" style="padding:8px">거래량 데이터가 아직 없어요. 집 PC의 다음 업데이트 때 채워져요.</p>`; return null; }
-  const lo = Math.min(...pts.map(p => p[0])), hi = Math.max(...pts.map(p => p[0])), step = (hi - lo) / bins || 1;
-  const acc = new Array(bins).fill(0);
-  pts.forEach(([c, v]) => { acc[Math.min(bins - 1, Math.floor((c - lo) / step))] += v; });
+  let lo = Infinity, hi = -Infinity;
+  pts.forEach(([c, , h, l]) => { lo = Math.min(lo, c, l); hi = Math.max(hi, c, h); });
+  const step = (hi - lo) / bins || 1, acc = new Array(bins).fill(0), bin = x => Math.min(bins - 1, Math.max(0, Math.floor((x - lo) / step)));
+  pts.forEach(([c, v, h, l]) => {
+    if (!(h > l)) { acc[bin(c)] += v; return; }
+    const b0 = bin(l), b1 = bin(h);
+    for (let b = b0; b <= b1; b++) { const ov = Math.min(h, lo + (b + 1) * step) - Math.max(l, lo + b * step); if (ov > 0) acc[b] += v * ov / (h - l); }
+  });
   const tot = acc.reduce((a, b) => a + b, 0), mx = Math.max(...acc), poc = acc.indexOf(mx);
-  const curBin = Math.min(bins - 1, Math.max(0, Math.floor((cur - lo) / step)));
+  const curBin = bin(cur);
   const above = acc.slice(curBin + 1).reduce((a, b) => a + b, 0) / tot * 100;
   el.innerHTML = `<div class="vprof">${acc.map((v, i) => i).reverse().map(i => {
     const p0 = lo + i * step, p1 = p0 + step;
     return `<div class="vrow ${i === curBin ? "cur" : ""} ${i === poc ? "poc" : ""}" title="${fmtNum(p0)}~${fmtNum(p1)} · ${(acc[i] / tot * 100).toFixed(1)}%">
       <span class="vp">${fmtNum((p0 + p1) / 2)}</span><span class="vb"><i style="width:${(acc[i] / mx * 100).toFixed(1)}%"></i></span><span class="vs">${(acc[i] / tot * 100).toFixed(1)}%</span></div>`; }).join("")}</div>
-    <p class="small muted" style="margin:6px 6px 0">현재가 위쪽에 쌓인 매물 <b class="num">${above.toFixed(1)}%</b> · 가장 많이 거래된 가격대 <b class="num">${fmtNum(lo + (poc + .5) * step)}</b></p>`;
+    <p class="small muted" style="margin:6px 6px 0">현재가 위쪽에 쌓인 매물 <b class="num">${above.toFixed(1)}%</b> · 가장 많이 거래된 가격대 <b class="num">${fmtNum(lo + (poc + .5) * step)}</b>${pts.length < 20 ? ` · <span class="down">보이는 봉이 ${pts.length}개뿐이라 참고만</span>` : ""}</p>`;
   return { above, poc: lo + (poc + .5) * step };
 }
 async function renderStock(t, start, listedNote = null) {
@@ -580,7 +590,7 @@ async function renderStock(t, start, listedNote = null) {
     $("#jmk").querySelectorAll(".jchg").forEach(async b => { const p0 = b.dataset.d && await priceOn(t, b.dataset.d); if (!p0) return;
       const c = (me.last / p0 - 1) * 100; b.className = "jchg " + cls(c); b.textContent = fmtPct(c, 1); }); };
   FB.listeners.push(jm); FB.ready.then(jm);
-  volumeProfile($("#vp"), closes, vol, me.last);
+  if (!(won && ctype !== "line")) { volumeProfile($("#vp"), closes, vol, me.last); $("#vps").textContent = "기간 거래량을 종가 가격대별로"; }
   // PER·PBR 현재값 (헤더) + 밸류 밴드
   loadX("fund_last").then(F => { const f = F?.rows?.[t]; if (!f || !$("#sprice")) return;
     $("#sprice").insertAdjacentHTML("beforeend", ` <small class="muted">· PER ${f[0] ? f[0].toFixed(1) : "–"} · PBR ${f[1] ? f[1].toFixed(2) : "–"} · 배당 ${f[2] ? f[2].toFixed(1) + "%" : "–"}</small>`); });

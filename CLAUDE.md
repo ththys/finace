@@ -25,7 +25,7 @@ Firebase (Auth + Firestore) = 개인 데이터만: 로그인(구글), 관심종�
 | 파일 | 내용 |
 |---|---|
 | core.js | 도구($·fmt·store), 상태 `S`, 로그인 `FB`(fbInit·관심종목), 데이터 읽기(loadChunk·loadRange·periodData·capIndex), 기간 바, lineChart·xyChart·sortableTable·검색, 추세 밴드(fitBand·bandControls), 전 종목 지표 `universe()`(+퀀트 점수·시장 체력), 실시간 시세 `livePrices`(네이버 polling JSONP, 실패하면 종가) |
-| stock.js | 종목 차트: candleView(일·주·월봉, 휠·드래그, 보조지표, 그린 선), 선/수익률 비교, PER·PBR 밴드, 종목 수급, viewStock·renderStock |
+| stock.js | 종목 차트: candleView(일·주·월봉, 휠·드래그, 보조지표, 그린 선, 매물대는 보이는 구간·고가~저가 분배), 선/수익률 비교, PER·PBR 밴드, 종목 수급, viewStock·renderStock |
 | market.js | 홈(viewHome·지수 추세·시장 체력·내 선 알림), 섹터(RRG), 수급·파생·매크로(viewFlow) |
 | lists.js | 스크리너(SF 필드·SPRESET), 관심종목(지수 점선·실시간 현재가 30초 갱신), 리포트(prepReports·목표가 레이더·[지금 리포트 받기]) |
 | main.js | 화면 틀 `SHELL`(머리글·메뉴), 투자일지 iframe, ROUTES·route, boot |
