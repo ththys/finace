@@ -59,7 +59,7 @@ Firebase (Auth + Firestore) = 개인 데이터만: 로그인(구글), 관심종�
 - pykrx 는 import/첫 요청 때 KRX 로그인을 한다. KRX·네이버는 요청 사이에 SLEEP 을 둔다 (줄이면 차단될 수 있음).
 - GitHub 올리기는 git 없이 API 로: 바뀐 파일만, 1분 70개·1회 440개 제한(나머지는 다음 실행), 커밋 작성자는 site-bot.
   publish 는 data/** 만 올린다 (index.html·web 은 건드리지 않음). 원격에 남은 옛 파일은 지우지 않는다.
-- `backfill_high_low` 는 예전에 고가·저가 없이 받은 날짜를 채우는 임시 작업(한 번에 700일). 다 채워지면 지워도 된다.
+- `backfill_high_low` 는 예전에 고가·저가 없이 받은 날짜를 채우는 임시 작업(한 번에 700일, 사이트 올린 뒤에 돎). 2026-11-15 기준 약 2,000일 남음(2007~2014). 다 채워지면 지워도 된다.
 - .env (집 PC에만): KRX_ID, KRX_PW, FIREBASE_API_KEY, FIREBASE_PROJECT_ID, JOURNAL_EMAIL, JOURNAL_PASSWORD, GITHUB_TOKEN, DRIVE_EXPORT_DIR(DB 백업 폴더, 선택)
 - 리포트 버튼: 집 PC가 `publish_site.setup_actions()` 로 저장소 Secrets 4개와 `state/gh` 토큰을 한 번 넣는다 (토큰에 Actions·Secrets 읽기·쓰기 권한 필요).
 

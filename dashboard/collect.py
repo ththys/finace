@@ -372,7 +372,6 @@ def main():
     watch = watchlist()
     tickers = update_stocks(conn, day, watch)
     update_prices(conn, tickers, day, full=args.full)
-    step("고가·저가 채우기", lambda: backfill_high_low(conn))
     step("리포트 업데이트", lazy("reports", "run"))
     step("수급 업데이트", lazy("flows", "update_all", conn, day, watch))
     folder = os.getenv("DRIVE_EXPORT_DIR", "").strip()   # DB 백업 (구글 드라이브 동기화 폴더 등)
@@ -389,6 +388,10 @@ def main():
         print(f"사이트 올리기 실패: {e}")
         print("(이 화면을 캡처해 주세요. 같은 내용이 last_run.log 에도 저장돼요.)")
         sys.exit(1)
+    # 예전 날짜 고가·저가 채우기는 사이트를 올린 뒤에 (기다리지 않게). 다 채우면 저절로 건너뜀
+    conn = db.connect()
+    step("고가·저가 채우기", lambda: backfill_high_low(conn))
+    conn.close()
     print("완료")
 
 
