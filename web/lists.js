@@ -87,7 +87,7 @@ async function renderWatch(start) {
   el.innerHTML = `<div class="tabs" id="wg" style="margin-bottom:10px">${[["", `전체 ${allW.length}`], ...groups.map(x => [x, `${x} ${allW.filter(t => FB.watch[t].group === x).length}`]), ["_none", "그룹 없음"]]
       .map(([k, l]) => `<button data-k="${esc(k)}" class="${k === g ? "on" : ""}">${esc(l)}</button>`).join("")}</div>
     <div id="wlive" style="margin-bottom:10px">${strip()}</div>
-    <div class="chart" style="margin-bottom:14px"><h3>비교 <small>기준일 ${pd.baseDate} = 100 · 점선은 지수 · 범례를 누르면 켜고 꺼요</small></h3><div id="wc"></div></div>
+    <div class="chart" style="margin-bottom:14px"><h3>비교 <small>기준일 ${pd.baseDate} = 100 · 점선은 지수 · 범례를 누르면 켜고 꺼요 · 선이나 아래 표에 마우스를 올리면 그 종목만 진하게</small></h3><div id="wc"></div></div>
     <datalist id="grplist">${groups.map(x => `<option value="${esc(x)}">`).join("")}</datalist>
     <div id="wt"></div><p class="small muted" style="margin-top:8px">현재가·오늘은 장중엔 네이버 실시간 시세, 못 받으면 마지막 종가. 그룹 칸에 이름을 쓰면 묶여요 (예: 반도체, 장기보유). 현재 낙폭은 최근 60거래일 고점 대비. '수집 전' 종목은 집 PC가 다음 업데이트 때 가격을 받아와요.</p>`;
   tabsBind("#wg", k => { store.set("wgroup", k); renderWatch(start); });
@@ -100,8 +100,8 @@ async function renderWatch(start) {
     return { label: r.n, data: v, color: `hsl(${(i * 137.5) % 360} 55% ${isDark() ? 65 : 42}%)`, width: 1.6 }; });
   idx.forEach((o, i) => { const v = [...o.data]; if (addToday) v.push(L[o.k] ? L[o.k].p / o.base * 100 : v.at(-1));
     ser.push({ label: o.nm, data: v, color: i ? css("--sub") : css("--ink"), width: 2.2, dash: [6, 4] }); });
-  if (ser.length) lineChart($("#wc"), dd, ser, { ref: 100, height: 280 });
-  else $("#wc").innerHTML = `<p class="small muted">이 그룹엔 가격이 있는 종목이 없어요</p>`;
+  const wu = ser.length ? lineChart($("#wc"), dd, ser, { ref: 100, height: 280, focus: true }) : null;
+  if (!wu) $("#wc").innerHTML = `<p class="small muted">이 그룹엔 가격이 있는 종목이 없어요</p>`;
   $("#wt").addEventListener("change", async e => { const inp = e.target.closest("input.grp"); if (!inp) return;
     const t = inp.dataset.t, val = inp.value.trim();
     try { await FB.F.setDoc(FB.F.doc(FB.db, "watchlist", t), { group: val }, { merge: true }); FB.watch[t] = { ...FB.watch[t], group: val }; renderWatch(start); }
@@ -118,6 +118,12 @@ async function renderWatch(start) {
     { k: "m60", l: "60일 MDD", f: r => `<td class="down">${fmtPct(r.m60)}</td>` },
     { k: "cur", l: "현재 낙폭", f: r => `<td class="${r.cur < -0.005 ? "down" : ""}">${fmtPct(r.cur)}</td>` },
   ], rows, { key: "ret", onRow: r => !r.miss && openStock(r.id) });
+  // 표에서 종목에 마우스를 올리면 차트에서 그 선만 진하게
+  const wt = $("#wt");
+  wt.addEventListener("mouseover", e => { const tr = e.target.closest("tbody tr"); if (!wu || !tr) return;
+    const nm = rows.find(r => r.id === tr.dataset.id)?.n, i = wu.series.findIndex(sr => sr.label === nm);
+    if (i > 0 && wu.series[i].show) wu.setSeries(i, { focus: true }); });
+  wt.addEventListener("mouseleave", () => wu && wu.setSeries(null, { focus: false }));
   if (L && marketOpen()) S.liveTm = setInterval(async () => {
     if (!document.body.contains(el) || !$("#wlive")) return clearInterval(S.liveTm);
     if (!marketOpen() || document.hidden) return;

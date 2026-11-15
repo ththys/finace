@@ -170,6 +170,8 @@ def scenario(base, out):
         pg.evaluate("location.hash='reports'"); snap("reports", 5000)
         pg.locator("#tpr tbody tr").nth(1).click(); snap("reports_pick", 1500)
         pg.evaluate("location.hash='watch'"); snap("watch", 5000)
+        pg.locator("#wt tbody tr").first.hover(); pg.wait_for_timeout(400)   # 표에 마우스 → 그 종목 선만 진하게 (눈으로 확인용, 비교 안 함)
+        pg.screenshot(path=os.path.join(out, "_watch_focus.png"))
         pg.evaluate("location.hash='home'"); snap("home_login", 5000)
         pg.evaluate("store.set('stock','005930'); store.set('preset','YTD'); store.set('ctype','day'); store.set('pxaxis','lin'); location.hash='stock'"); snap("stock_login", 6000)
         go("journal"); snap("journal", 3000, "body")

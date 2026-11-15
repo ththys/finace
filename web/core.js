@@ -212,7 +212,7 @@ function periodBar(onChange) {
 function destroyCharts() { S.charts.forEach(c => c.destroy()); S.charts = []; }
 /** el 안에 그려 둔 차트만 지움 (그 칸만 다시 그릴 때) */
 function destroyIn(el) { S.charts.filter(c => el.contains(c.root)).forEach(c => { c.destroy(); S.charts.splice(S.charts.indexOf(c), 1); }); }
-function lineChart(el, d, series, { pct = false, ref = null, height = 260, legend = true, compact = false, marks = [], won = false, onToggle = null, bands = null, lastTag = null, crosshair = !compact } = {}) {
+function lineChart(el, d, series, { pct = false, ref = null, height = 260, legend = true, compact = false, marks = [], won = false, onToggle = null, bands = null, lastTag = null, crosshair = !compact, zoom = !compact, focus = false } = {}) {
   const xs = d.map(s => Date.parse(s + "T00:00:00Z") / 1000);
   const ink = css("--ink"), sub = css("--sub"), rule = css("--rule");
   const palette = [css("--ink"), css("--accent"), css("--faint"), css("--up"), css("--down"), "#b07d2a", "#7a52b3", "#2f8f9d"];
@@ -241,6 +241,7 @@ function lineChart(el, d, series, { pct = false, ref = null, height = 260, legen
   if (compact) { opts.axes[0].show = false; opts.axes[1].space = 24; opts.padding = [6, 8, 0, 0]; }
   if (lastTag != null) opts.hooks.draw = [u => drawLastTag(u, lastTag)];
   if (bands) opts.bands = bands;
+  if (focus) { opts.focus = { alpha: 0.18 }; opts.cursor.focus = { prox: 14 }; }
   if (onToggle) opts.hooks.setSeries = [(uu, i, o) => { if (i != null && o && o.show != null && uu.series[i]) onToggle(uu.series[i].label, o.show); }];
   let tip, ylab, xlab;
   if (crosshair) {   // 마우스 위치: 가격축에 값, 날짜축에 날짜, 옆에 그날 값들 (종목 캔들 차트와 같은 모양)
@@ -267,8 +268,27 @@ function lineChart(el, d, series, { pct = false, ref = null, height = 260, legen
     el.append(tip, ylab, xlab);
     u.over.addEventListener("mouseleave", () => { tip.hidden = ylab.hidden = xlab.hidden = true; });
   }
+  if (zoom && xs.length > 10) zoomPan(u, xs);
   S.charts.push(u);
   return u;
+}
+/** 선 차트 확대·이동: 휠 확대·축소, 드래그 이동, 더블클릭 처음으로 (기간 찍기 중에는 쉼) */
+function zoomPan(u, xs) {
+  const over = u.over, lo = xs[0], hi = xs.at(-1), minSpan = (hi - lo) / xs.length * 10;
+  const setX = (a, b) => { let span = Math.max(minSpan, Math.min(hi - lo, b - a));
+    a = Math.max(lo, Math.min(a, hi - span)); u.setScale("x", { min: a, max: a + span }); };
+  over.title = "휠 확대·축소 · 드래그 이동 · 더블클릭 처음으로";
+  over.addEventListener("wheel", e => { if (S.bandPick) return; e.preventDefault(); const { min, max } = u.scales.x, x = u.posToVal(e.offsetX, "x"), f = e.deltaY < 0 ? 0.85 : 1 / 0.85;
+    setX(x - (x - min) * f, x + (max - x) * f); }, { passive: false });
+  let drag = null;
+  over.addEventListener("mousedown", e => { if (e.button !== 0 || S.bandPick) return; drag = { x: e.clientX, min: u.scales.x.min, max: u.scales.x.max, moved: false }; });
+  const onMove = e => { if (!drag) return; const dx = e.clientX - drag.x; if (Math.abs(dx) > 6) drag.moved = true; if (!drag.moved) return;
+    over.style.cursor = "grabbing"; const per = (drag.max - drag.min) / u.bbox.width * devicePixelRatio; setX(drag.min - dx * per, drag.max - dx * per); };
+  const onUp = () => { if (!drag) return; if (drag.moved) { over.dataset.justDragged = "1"; setTimeout(() => delete over.dataset.justDragged, 50); } drag = null; over.style.cursor = ""; };
+  window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
+  (u.hooks.destroy ||= []).push(() => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); });
+  over.addEventListener("click", e => { if (over.dataset.justDragged) e.stopImmediatePropagation(); }, true);
+  over.addEventListener("dblclick", () => { if (!S.bandPick) u.setScale("x", { min: lo, max: hi }); });
 }
 window.addEventListener("resize", () => S.charts.forEach(u => { const w = u.root.parentElement.clientWidth - 4; if (w > 0) u.setSize({ width: Math.max(280, w), height: u.height }); }));
 
