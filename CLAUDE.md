@@ -24,7 +24,7 @@ Firebase (Auth + Firestore) = 개인 데이터만: 로그인(구글), 관심종�
 
 | 파일 | 내용 |
 |---|---|
-| core.js | 도구($·fmt·store), 상태 `S`, 로그인 `FB`(fbInit·관심종목), 데이터 읽기(loadChunk·loadRange·periodData·capIndex), 기간 바, lineChart·xyChart·sortableTable·검색, 추세 밴드(fitBand·bandControls), 전 종목 지표 `universe()`(+퀀트 점수·시장 체력), 실시간 시세 `livePrices`(네이버 polling JSONP, 실패하면 종가) |
+| core.js | 도구($·fmt·store), 상태 `S`, 로그인 `FB`(fbInit·관심종목), 데이터 읽기(loadChunk·loadRange·periodData·capIndex), 기간 바, lineChart(마우스 십자선·휠 확대·드래그 이동·focus)·xyChart·sortableTable·검색, 추세 밴드(fitBand·bandControls), 전 종목 지표 `universe()`(+퀀트 점수·시장 체력), 실시간 시세 `livePrices`(네이버 polling JSONP, 실패하면 종가) |
 | stock.js | 종목 차트: candleView(일·주·월봉, 휠·드래그, 보조지표, 그린 선, 매물대는 보이는 구간·고가~저가 분배), 선/수익률 비교, PER·PBR 밴드, 종목 수급, viewStock·renderStock |
 | market.js | 홈(viewHome·지수 추세·시장 체력·내 선 알림), 섹터(RRG), 수급·파생·매크로(viewFlow) |
 | lists.js | 스크리너(SF 필드·SPRESET), 관심종목(지수 점선·실시간 현재가 30초 갱신), 리포트(prepReports·목표가 레이더·[지금 리포트 받기]) |
@@ -75,8 +75,6 @@ python -m pyflakes dashboard/*.py tools/*.py && for f in web/*.js; do node --che
 
 ## 알아 둘 것 · 남은 일
 
-- 2026-11-13 이전의 집 PC 코드는 index.html·ver.json 도 올렸다. `Site data` 커밋이 index.html 을 바꾸거나 ver.json 을 다시 만들었으면
-  집 PC가 옛 코드로 돈 것(updater 실패) → index.html 을 로더(2KB)로 되돌리고 ver.json 을 지운다. 작성자가 site-bot 인 data 커밋이 보이면 새 코드로 넘어온 것이라 이 줄은 지워도 된다.
 - 저장소는 매일 data 커밋으로 연 0.3GB 쯤 커진다. 1GB 가까워지면 기록 정리(히스토리 다시 쓰기)가 필요하고, 되돌릴 수 없으니 사용자 확인을 받는다.
 - 해가 바뀌면 px/vol/ohlc/fund 의 지난해 월 파일(M2026-*)이 연 파일로 합쳐진다. 옛 월 파일은 원격에 남는다(지우는 기능 없음).
 - 리포트는 Firestore 문서 하나(1MB 제한, 넘으면 오래된 것부터 버림). 관심종목이 수십 개로 늘면 종목별 문서로 나눠야 한다.
