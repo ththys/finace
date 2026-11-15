@@ -282,6 +282,7 @@ nav.menu .navgrp{font-size:10px;font-weight:700;color:var(--faint);letter-spacin
 .ohlcbox i{font-style:normal;color:var(--ink)} .ohlcbox i.up{color:var(--up)} .ohlcbox i.down{color:var(--down)}
 .curtip{position:absolute;pointer-events:none;z-index:3;background:var(--ink);color:var(--paper);font-size:11px;font-family:var(--mono);line-height:1.35;padding:4px 7px;border-radius:5px;white-space:nowrap;opacity:.92}
 .curtip b{font-size:12px}
+.curtip.multi{background:var(--card);color:var(--ink);border:1px solid var(--rule);box-shadow:0 2px 8px rgba(0,0,0,.18);opacity:.96}
 .axlab{position:absolute;pointer-events:none;z-index:3;background:var(--ink);color:var(--paper);font-size:11px;font-family:var(--mono);padding:1px 4px;border-radius:3px;white-space:nowrap;text-align:right;box-sizing:border-box}
 .axlab.xlab{transform:translateX(-50%)}
 .indchips.tools{margin-top:-2px}

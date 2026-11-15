@@ -212,7 +212,7 @@ function periodBar(onChange) {
 function destroyCharts() { S.charts.forEach(c => c.destroy()); S.charts = []; }
 /** el 안에 그려 둔 차트만 지움 (그 칸만 다시 그릴 때) */
 function destroyIn(el) { S.charts.filter(c => el.contains(c.root)).forEach(c => { c.destroy(); S.charts.splice(S.charts.indexOf(c), 1); }); }
-function lineChart(el, d, series, { pct = false, ref = null, height = 260, legend = true, compact = false, marks = [], won = false, onToggle = null, bands = null, lastTag = null } = {}) {
+function lineChart(el, d, series, { pct = false, ref = null, height = 260, legend = true, compact = false, marks = [], won = false, onToggle = null, bands = null, lastTag = null, crosshair = !compact } = {}) {
   const xs = d.map(s => Date.parse(s + "T00:00:00Z") / 1000);
   const ink = css("--ink"), sub = css("--sub"), rule = css("--rule");
   const palette = [css("--ink"), css("--accent"), css("--faint"), css("--up"), css("--down"), "#b07d2a", "#7a52b3", "#2f8f9d"];
@@ -242,7 +242,31 @@ function lineChart(el, d, series, { pct = false, ref = null, height = 260, legen
   if (lastTag != null) opts.hooks.draw = [u => drawLastTag(u, lastTag)];
   if (bands) opts.bands = bands;
   if (onToggle) opts.hooks.setSeries = [(uu, i, o) => { if (i != null && o && o.show != null && uu.series[i]) onToggle(uu.series[i].label, o.show); }];
+  let tip, ylab, xlab;
+  if (crosshair) {   // 마우스 위치: 가격축에 값, 날짜축에 날짜, 옆에 그날 값들 (종목 캔들 차트와 같은 모양)
+    const yfmt = v => pct ? v.toFixed(1) + "%" : won ? fmtNum(Math.round(v)) : Math.abs(v) >= 1000 ? fmtNum(Math.round(v)) : v.toFixed(Math.abs(v) >= 100 ? 1 : 2);
+    opts.hooks.setCursor = [uu => {
+      if (!tip) return;
+      const { left, top, idx } = uu.cursor;
+      if (left == null || left < 0 || top < 0 || idx == null || !uu.over.matches(":hover")) { tip.hidden = ylab.hidden = xlab.hidden = true; return; }
+      const ox = uu.over.offsetLeft, oy = uu.over.offsetTop, day = d[idx] || "";
+      ylab.hidden = false; ylab.textContent = yfmt(uu.posToVal(top, "y")); ylab.style.top = (oy + top - 9) + "px"; ylab.style.left = "0px"; ylab.style.width = (ox - 2) + "px";
+      xlab.hidden = !day; xlab.textContent = day; xlab.style.left = (ox + left) + "px"; xlab.style.top = (oy + uu.over.clientHeight + 2) + "px";
+      const rows = uu.series.slice(1).map((sr, i) => [sr, uu.data[i + 1][idx]]).filter(([sr, v]) => sr.show && v != null && sr.label).slice(0, 8);
+      tip.hidden = false; tip.classList.toggle("multi", rows.length > 1);
+      tip.innerHTML = `${day}` + rows.map(([sr, v]) => `<br><i style="color:${typeof sr.stroke === "function" ? sr.stroke(uu) : sr.stroke}">■</i> ${esc(sr.label)} <b>${sr.value(uu, v)}</b>`).join("");
+      const tw = tip.offsetWidth || 120, flip = left > uu.over.clientWidth - tw - 20;
+      tip.style.left = (ox + left + (flip ? -tw - 12 : 14)) + "px"; tip.style.top = (oy + Math.max(0, top - 40)) + "px"; }];
+  }
   const u = new uPlot(opts, [xs, ...series.map(s => s.data)], el);
+  if (crosshair) {
+    el.style.position = "relative";
+    tip = document.createElement("div"); tip.className = "curtip"; tip.hidden = true;
+    ylab = document.createElement("div"); ylab.className = "axlab ylab"; ylab.hidden = true;
+    xlab = document.createElement("div"); xlab.className = "axlab xlab"; xlab.hidden = true;
+    el.append(tip, ylab, xlab);
+    u.over.addEventListener("mouseleave", () => { tip.hidden = ylab.hidden = xlab.hidden = true; });
+  }
   S.charts.push(u);
   return u;
 }
