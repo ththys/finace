@@ -8,3 +8,4 @@ site_data/
 debug_*
 python_path.txt
 .cloud_setup_done
+.running

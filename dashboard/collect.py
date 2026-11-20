@@ -395,5 +395,73 @@ def main():
     print("완료")
 
 
+# ---------------- 자동 실행: 장 끝날 때까지 기다리기 · 겹쳐 돌지 않기 · 컴퓨터 켜면 자동 실행 ----------------
+
+READY_AT = (16, 0)   # 평일 이 시각(한국) 전이면 기다렸다가 실행 (15:30 장 마감 → KRX 자료가 다 나오는 시간)
+
+
+def _kst():
+    return dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).replace(tzinfo=None)
+
+
+def wait_for_close():
+    """평일 장중·장전이면 READY_AT 까지 기다림 (장중에 받으면 오늘 값이 덜 끝난 가격으로 저장됨)"""
+    now = _kst()
+    ready = now.replace(hour=READY_AT[0], minute=READY_AT[1], second=0, microsecond=0)
+    if now.weekday() >= 5 or now >= ready:
+        return
+    print(f"아직 장이 안 끝났어요 → 오늘 {READY_AT[0]}:{READY_AT[1]:02d} 에 시작해요. 창을 닫지 마세요. (바로 하려면 python collect.py --now)", flush=True)
+    while True:
+        left = (ready - _kst()).total_seconds()
+        if left <= 0:
+            break
+        if sys.__stdout__.isatty():
+            sys.__stdout__.write(f"\r  시작까지 {int(left // 3600)}시간 {int(left % 3600 // 60):02d}분   ")
+            sys.__stdout__.flush()
+        time.sleep(min(60, left))
+    print()
+
+
+def single_run():
+    """이미 다른 창에서 돌고 있으면 True (로그온 실행과 18시 실행이 겹칠 때). 4시간 넘은 표시는 무시"""
+    lock = os.path.join(HERE, ".running")
+    try:
+        if os.path.exists(lock) and time.time() - os.path.getmtime(lock) < 4 * 3600:
+            return True
+        open(lock, "w").write(str(os.getpid()))
+        import atexit
+        atexit.register(lambda: os.path.exists(lock) and os.remove(lock))
+    except OSError:
+        pass
+    return False
+
+
+def ensure_autostart():
+    """Windows: 컴퓨터 켜고 로그인하면 kospi_update.bat 자동 실행 + 매일 18시 실행. 없을 때만 한 번 만들어 둠 (관리자 권한 필요 없음)"""
+    if os.name != "nt":
+        return
+    import subprocess
+    bat = os.path.join(HERE, "kospi_update.bat")
+    has = lambda name: subprocess.run(["schtasks", "/Query", "/TN", name], capture_output=True).returncode == 0
+    startup = os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup")
+    if not has("kospi_update_logon") and os.path.isdir(startup):
+        f = os.path.join(startup, "kospi_update.cmd")
+        if not os.path.exists(f):
+            with open(f, "w", encoding="mbcs") as w:
+                w.write(f'@echo off\r\ntimeout /t 90 /nobreak >nul\r\nstart "kospi" /min cmd /c ""{bat}""\r\n')
+            print("자동 실행 등록: 컴퓨터를 켜고 로그인하면 데이터 업데이트가 저절로 돌아요 (시작프로그램)")
+    if not has("kospi_update_1800"):
+        r = subprocess.run(["schtasks", "/Create", "/TN", "kospi_update_1800", "/TR", f'"{bat}"', "/SC", "DAILY", "/ST", "18:00", "/F"], capture_output=True)
+        if r.returncode == 0:
+            print("자동 실행 등록: 매일 18시")
+
+
 if __name__ == "__main__":
+    if single_run():
+        sys.exit(print("이미 다른 창에서 업데이트 중이라 이번엔 건너뛰어요.") or 0)
+    step("자동 실행 등록", ensure_autostart)
+    if "--now" not in sys.argv:
+        wait_for_close()
+    else:
+        sys.argv.remove("--now")
     main()
