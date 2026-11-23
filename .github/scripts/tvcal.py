@@ -55,8 +55,8 @@ if hist.get("_day") != now.strftime("%Y-%m-%d") or os.getenv("FORCE_HIST"):
     keys = {e["k"] for e in ev if (e.get("importance") or 0) >= 1}
     series = {}
     start = now - dt.timedelta(days=365 * 5 + 30)
-    while start < now:   # 1년씩 나눠 받기
-        end = min(now + dt.timedelta(days=1), start + dt.timedelta(days=366))
+    while start < now:   # 한 달씩 나눠 받기 (한 번에 받는 개수에 제한이 있음)
+        end = min(now + dt.timedelta(days=1), start + dt.timedelta(days=31))
         r2 = urllib.request.Request(URL.format(a=start.strftime("%Y-%m-%dT00:00:00.000Z"), b=end.strftime("%Y-%m-%dT00:00:00.000Z"), c=COUNTRIES), headers=req.headers)
         rows2 = json.load(urllib.request.urlopen(r2, timeout=60))
         rows2 = rows2.get("result", rows2) if isinstance(rows2, dict) else rows2
