@@ -318,25 +318,25 @@ const EVINFO = {
     react: "만기 직전엔 변동성이 커지고, 만기가 지나면 딜러 감마 포지션이 풀리면서 방향이 새로 잡히기도 해요. 수급·매크로 화면의 옵션 감마와 같이 보세요." },
 };
 const TVC = [["US", "미국"], ["KR", "한국"], ["CN", "중국"], ["JP", "일본"], ["EU", "유럽"], ["DE", "독일"], ["GB", "영국"]];
-const TVKO = { "Non Farm Payrolls": "비농업 고용", "Unemployment Rate": "실업률", "Inflation Rate YoY": "소비자물가 전년비", "Inflation Rate MoM": "소비자물가 전월비",
-  "Core Inflation Rate YoY": "근원 물가 전년비", "Core Inflation Rate MoM": "근원 물가 전월비", "Core PCE Price Index MoM": "근원 PCE 물가 전월비", "PPI MoM": "생산자물가 전월비",
-  "Retail Sales MoM": "소매판매 전월비", "Retail Sales YoY": "소매판매 전년비", "ISM Manufacturing PMI": "ISM 제조업 지수", "ISM Services PMI": "ISM 서비스업 지수",
-  "GDP Growth Rate QoQ Prel": "GDP 성장률(속보)", "GDP Growth Rate QoQ 2nd Est": "GDP 성장률(잠정)", "GDP Growth Rate QoQ Final": "GDP 성장률(확정)", "GDP Growth Rate YoY Prel": "GDP 성장률 전년비(속보)",
-  "Interest Rate": "기준금리 결정", "ECB Interest Rate Decision": "ECB 금리 결정", "Deposit Facility Rate": "ECB 예금금리", "JOLTs Job Openings": "구인건수(JOLTs)",
-  "Michigan Consumer Sentiment Prel": "미시간 소비자심리(예비)", "Consumer Confidence": "소비자신뢰지수", "Balance of Trade": "무역수지", "Exports YoY": "수출 전년비", "Imports YoY": "수입 전년비",
-  "Industrial Production YoY": "산업생산 전년비", "Housing Starts": "주택착공", "Building Permits Prel": "건축허가(예비)", "Existing Home Sales": "기존주택판매", "Durable Goods Orders MoM": "내구재 주문",
-  "Personal Income MoM": "개인소득", "Personal Spending MoM": "개인소비", "NBS Manufacturing PMI": "국가통계국 제조업 PMI", "Tankan Large Manufacturers Index": "단칸 대형 제조업",
-  "S&P Global Manufacturing PMI Flash": "S&P 제조업 PMI(예비)", "S&P Global Services PMI Flash": "S&P 서비스업 PMI(예비)", "Ifo Business Climate": "Ifo 기업환경", "ZEW Economic Sentiment Index": "ZEW 경기기대" };
+const TVKO = { "Inflation Rate YoY Flash": "소비자물가 (CPI) 전년비 속보", "PCE Price Index MoM": "PCE 물가 전월비", "Core PCE Price Index YoY": "근원 PCE 물가 전년비 (Core PCE)", "Non Farm Payrolls": "비농업 고용 (NFP)", "Unemployment Rate": "실업률 (Unemployment Rate)", "Inflation Rate YoY": "소비자물가 (CPI) 전년비", "Inflation Rate MoM": "소비자물가 (CPI) 전월비",
+  "Core Inflation Rate YoY": "근원 CPI 전년비", "Core Inflation Rate MoM": "근원 CPI 전월비", "Core PCE Price Index MoM": "근원 PCE 물가 전월비 (Core PCE)", "PPI MoM": "생산자물가 (PPI) 전월비",
+  "Retail Sales MoM": "소매판매 (Retail Sales) 전월비", "Retail Sales YoY": "소매판매 (Retail Sales) 전년비", "ISM Manufacturing PMI": "ISM 제조업 지수 (ISM Mfg PMI)", "ISM Services PMI": "ISM 서비스업 지수 (ISM Svcs PMI)",
+  "GDP Growth Rate QoQ Prel": "GDP 성장률 속보 (GDP QoQ)", "GDP Growth Rate QoQ 2nd Est": "GDP 성장률 잠정 (GDP QoQ)", "GDP Growth Rate QoQ Final": "GDP 성장률 확정 (GDP QoQ)", "GDP Growth Rate YoY Prel": "GDP 성장률 전년비 속보 (GDP YoY)",
+  "Interest Rate": "기준금리 결정 (Rate Decision)", "ECB Interest Rate Decision": "ECB 금리 결정", "Deposit Facility Rate": "ECB 예금금리 (DFR)", "JOLTs Job Openings": "구인건수 (JOLTS)",
+  "Michigan Consumer Sentiment Prel": "미시간 소비자심리 예비 (UMich)", "Consumer Confidence": "소비자신뢰지수 (CB)", "Balance of Trade": "무역수지 (Trade Balance)", "Exports YoY": "수출 전년비", "Imports YoY": "수입 전년비",
+  "Industrial Production YoY": "산업생산 (IP) 전년비", "Housing Starts": "주택착공 (Housing Starts)", "Building Permits Prel": "건축허가 예비 (Building Permits)", "Existing Home Sales": "기존주택판매 (Existing Home Sales)", "Durable Goods Orders MoM": "내구재 주문 (Durable Goods)",
+  "Personal Income MoM": "개인소득 (Personal Income)", "Personal Spending MoM": "개인소비 (PCE Spending)", "NBS Manufacturing PMI": "국가통계국 제조업 PMI (NBS PMI)", "Tankan Large Manufacturers Index": "단칸 대형 제조업",
+  "S&P Global Manufacturing PMI Flash": "S&P 제조업 PMI 예비 (Flash PMI)", "S&P Global Services PMI Flash": "S&P 서비스업 PMI 예비 (Flash PMI)", "Ifo Business Climate": "Ifo 기업환경", "ZEW Economic Sentiment Index": "ZEW 경기기대" };
 const kstOf = iso => { const x = new Date(new Date(iso).getTime() + 9 * 3600e3); return [x.toISOString().slice(0, 10), x.toISOString().slice(11, 16)]; };
 async function loadEvents() {
   const get = async f => { try { return await (await fetch(f, { cache: "no-cache" })).json(); } catch { return null; } };
-  const [C, T, TI] = await Promise.all([get("cal/events.json"), get("cal/tv.json"), get("cal/tvinfo.json")]);
+  const [C, T, TI, TH] = await Promise.all([get("cal/events.json"), get("cal/tv.json"), get("cal/tvinfo.json"), get("cal/tvhist.json")]);
   const today = kstToday();
   const tv = (T?.events || []).map(r => { const [d, t] = kstOf(r.date), cn = TVC.find(c => c[0] === r.country)?.[1] || r.country;
     return [d, "tv", `${cn} ${TVKO[r.title] || r.title}`, `${t} 발표${r.period ? " · " + r.period : ""}`, { ...r, time: t, info: TI?.[r.k] }]; });
   const evs = [...(C?.events || []), ...expiries(isoMinus(today, 400), isoMinus(today, -400)), ...tv].sort((a, b) => a[0].localeCompare(b[0]) || (a[4]?.time || "").localeCompare(b[4]?.time || ""));
   const stale = C ? Object.entries(C.covered || {}).filter(([, v]) => v < isoMinus(today, -60)).map(([k]) => EVK.find(x => x[0] === k)?.[1] || k) : ["고정 일정"];
-  return { evs, stale, today, tvUpdated: T?.updated };
+  return { evs, stale, today, tvUpdated: T?.updated, hist: TH || {} };
 }
 /* 경제지표는 나라·중요도 필터도 통과해야 보임 */
 const evPass = (e, on) => on.includes(e[1]) && (e[1] !== "tv" || (store.get("evtvc", ["US", "KR", "CN"]).includes(e[4].country) && (store.get("evtvi", 1) === 0 || e[4].importance >= 1)));
@@ -364,6 +364,22 @@ async function drawEvents() {
     const k = t.dataset.k, i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon2", on); draw(); });
   draw();
 }
+/* 지표 발표 때 시장 반응: 발표 시각 이후 첫 종가 − 직전 종가. 서프라이즈(실제−예상)와의 상관 */
+const REACT = [["IDX_KOSPI", "코스피", "%"], ["DGS2", "미국 2년 금리", "bp"], ["DXY", "달러인덱스", "%"], ["DEXKOUS", "원/달러", "%"]];
+function reactions(H, M) {
+  return REACT.map(([k, nm, u]) => { const z = M?.[k]; if (!z) return null;
+    const rows = H.map(([iso, a, f]) => { const ut = new Date(iso + ":00Z"), kst = new Date(ut.getTime() + 9 * 3600e3).toISOString(), us = new Date(ut.getTime() - 5 * 3600e3).toISOString();
+      // 한국 지수는 15:30(KST) 이후 발표면 다음 날 반응, 미국 지표(FRED 일자)는 미국 날짜 기준 그날 종가
+      const day = k === "IDX_KOSPI" ? (kst.slice(11, 16) >= "15:30" ? isoMinus(kst.slice(0, 10), -1) : kst.slice(0, 10)) : us.slice(0, 10);
+      let i = z.d.findIndex(d => d >= day); if (i < 1) return null;
+      const ch = u === "bp" ? (z.v[i] - z.v[i - 1]) * 100 : (z.v[i] / z.v[i - 1] - 1) * 100;
+      return f == null || a == null ? null : { s: a - f, r: ch, d: iso.slice(0, 10) }; }).filter(Boolean);
+    if (rows.length < 6) return { k, nm, u, n: rows.length };
+    const mx = rows.reduce((p, q) => p + q.s, 0) / rows.length, my = rows.reduce((p, q) => p + q.r, 0) / rows.length;
+    let sxy = 0, sxx = 0, syy = 0; rows.forEach(q => { sxy += (q.s - mx) * (q.r - my); sxx += (q.s - mx) ** 2; syy += (q.r - my) ** 2; });
+    const hi = rows.filter(q => q.s > 0), lo = rows.filter(q => q.s < 0), avg = a => a.length ? a.reduce((p, q) => p + q.r, 0) / a.length : null;
+    return { k, nm, u, n: rows.length, corr: sxx && syy ? sxy / Math.sqrt(sxx * syy) : null, hi: avg(hi), nhi: hi.length, lo: avg(lo), nlo: lo.length }; }).filter(Boolean);
+}
 /* 일정 메뉴: 달력 + 해석 + 다가오는 목록 */
 async function viewCal(app) {
   app.innerHTML = `<div><div class="kicker">일정</div><h2>경제 일정 달력</h2>
@@ -380,7 +396,7 @@ async function viewCal(app) {
     box.innerHTML = `<p class="small muted">미국·한국·중국·일본·유로존의 중요도 중간 이상 지표. 발표되면 실제치가 채워져요. 화면 위 필터로 나라·중요도를 바꿀 수 있어요. (TradingView 제공, 해석은 '주요 일정 · 해석' 탭)</p>`;
     w.appendChild(sc); box.appendChild(w); return;
   }
-  const el = $("#calbox"), { evs, stale, today, tvUpdated } = await loadEvents(); if (!document.body.contains(el)) return;
+  const el = $("#calbox"), { evs, stale, today, tvUpdated, hist } = await loadEvents(), M = await loadX("macro").catch(() => null); if (!document.body.contains(el)) return;
   const on = store.get("evon2", EVK.map(k => k[0])), pk = store.get("evpick", ""); store.set("evpick", "");
   let pick = evs.find(e => e[0] + "|" + e[2] === pk) || evs.find(e => evPass(e, on) && e[0] >= today && e[1] !== "tv") || null, ym = (pick?.[0] || today).slice(0, 7);
   const shown = () => evs.filter(e => evPass(e, on));
@@ -393,7 +409,19 @@ async function viewCal(app) {
         <div><div class="lbl">예상</div><div class="v">${fmtV(r.forecast, r)}</div></div><div><div class="lbl">이전</div><div class="v">${fmtV(r.previous, r)}</div></div></div>
       ${I ? `<p style="margin:10px 0 6px">${I.what}</p><div><b>볼 것</b><ul style="margin:4px 0 8px 18px;padding:0">${I.watch.map(w => `<li>${w}</li>`).join("")}</ul></div><p style="margin:0 0 8px"><b>시장 반응</b> ${I.react}</p>` : ""}
       <p class="small" style="margin:8px 0 0"><b>해석</b> 실제가 예상과 크게 다를수록 시장이 크게 움직여요. 물가·고용이 예상보다 높으면 보통 금리 상승·달러 강세(주식엔 부담), 낮으면 반대. 경기지표(PMI·소매판매·GDP)는 예상보다 좋으면 경기에 긍정적이지만 금리 인하 기대는 줄어요.</p>
+      ${(hist[r.k] || []).length > 2 ? `<div class="chart" style="margin-top:10px"><h3>지난 발표치 <small>실제 · 예상(점선), 최근 5년</small></h3><div id="tvh"></div></div>
+        <div class="chart"><h3>같은 기간 시장 <small><span class="tabs" id="tvm">${REACT.map(([k, nm]) => `<button data-k="${k}" class="${k === store.get("tvm", "IDX_KOSPI") ? "on" : ""}">${nm}</button>`).join("")}</span></small></h3><div id="tvmc"></div></div>
+        ${(() => { const R = reactions(hist[r.k], M), fm = (v, u) => v == null ? "–" : (v > 0 ? "+" : "") + v.toFixed(u === "bp" ? 1 : 2) + (u === "bp" ? "bp" : "%");
+          return `<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>발표 날 반응</th><th>상관</th><th>예상보다 높을 때</th><th>낮을 때</th></tr></thead><tbody>${R.map(x => `<tr><td class="name">${x.nm}<small>${x.n}번</small></td>
+            <td>${x.corr == null ? "–" : x.corr.toFixed(2)}</td><td class="${cls(x.hi)}">${fm(x.hi, x.u)}<small>${x.nhi ?? ""}번</small></td><td class="${cls(x.lo)}">${fm(x.lo, x.u)}<small>${x.nlo ?? ""}번</small></td></tr>`).join("")}</tbody></table></div>
+            <p class="small muted">상관 = 서프라이즈(실제−예상)가 클수록 그날 시장이 어느 쪽으로 움직였는지 (−1~1, 0.3 넘으면 꽤 뚜렷). 코스피는 장 마감 뒤 발표면 다음 날 종가로 계산.</p>`; })()}` : ""}
       ${r.info ? `<details style="margin-top:8px"><summary class="small">지표 설명 (TradingView, 영어)</summary><p class="small muted">${esc(r.info)}</p></details>` : ""}</div>`; };
+  const tvCharts = () => { const r = pick?.[1] === "tv" ? pick[4] : null, H = r && hist[r.k]; if (!H || H.length < 3 || !$("#tvh")) return;
+    const d = H.map(x => x[0].slice(0, 10));
+    lineChart($("#tvh"), d, [{ label: "실제", data: H.map(x => x[1]), color: css("--accent"), width: 2 }, { label: "예상", data: H.map(x => x[2]), color: css("--faint"), dash: [4, 3] }], { height: 170 });
+    const k = store.get("tvm", "IDX_KOSPI"), z = M?.[k]; if (!z) return;
+    const i0 = z.d.findIndex(x => x >= d[0]), zd = z.d.slice(Math.max(0, i0)), zv = z.v.slice(Math.max(0, i0));
+    lineChart($("#tvmc"), zd, [{ label: REACT.find(q => q[0] === k)[1], data: zv, color: css("--ink"), width: 1.5 }], { height: 150, marks: [[d.at(-1), css("--faint"), "최근 발표"]] }); };
   const detail = e => { if (e[1] === "tv") return detailTv(e); const I = EVINFO[e[1]], n = evDD(e[0], today);
     return `<div style="border:1px solid var(--rule);border-left:4px solid ${EVCOL[e[1]]};padding:12px 14px">
       <div><b style="font-size:16px">${esc(e[2])}</b></div><div class="small muted">${e[0]}${["fomc", "cpi", "nfp"].includes(e[1]) ? " (미국 현지)" : ""} · ${n === 0 ? "오늘" : n > 0 ? "D-" + n : -n + "일 지남"}</div>
@@ -416,9 +444,11 @@ async function viewCal(app) {
           <div><div class="kicker">다가오는 일정</div>${evListHTML(shown().filter(e => e[0] >= today && e[0] <= isoMinus(today, -75)).slice(0, 12), today, evs)}</div></aside></div>
       <p class="small muted" style="margin-top:10px">출처: 연준(FOMC), 미국 노동통계국(CPI·고용), 한국은행(금통위), 경제지표는 TradingView(2시간마다 갱신${tvUpdated ? ", 마지막 " + tvUpdated : ""}). 옵션 만기는 매달 둘째 목요일로 계산(휴장이면 앞당겨짐).</p>
       ${stale.length ? `<p class="small down">${stale.join(", ")} 다음 해 일정이 아직 안 들어갔어요</p>` : ""}`;
+    destroyCharts(); tvCharts();
   };
-  el.addEventListener("click", e => { const t = e.target.closest("[data-i],[data-mv],#evf button,#evtvc button,#evtvi button"); if (!t) return;
-    if (evTvClick(t)) {}
+  el.addEventListener("click", e => { const t = e.target.closest("[data-i],[data-mv],#evf button,#evtvc button,#evtvi button,#tvm button"); if (!t) return;
+    if (t.closest("#tvm")) { store.set("tvm", t.dataset.k); }
+    else if (evTvClick(t)) {}
     else if (t.dataset.i != null) { pick = evs[+t.dataset.i]; ym = pick[0].slice(0, 7); }
     else if (t.dataset.mv) { const [y, m] = ym.split("-").map(Number); ym = new Date(Date.UTC(y, m - 1 + +t.dataset.mv, 1)).toISOString().slice(0, 7); }
     else { const k = t.dataset.k, i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon2", on); }

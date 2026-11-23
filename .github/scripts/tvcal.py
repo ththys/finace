@@ -68,5 +68,5 @@ if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 2:
     out = {"_day": now.strftime("%Y-%m-%d"), "_v": 2}
     for k, m in series.items():
         out[k] = [[d] + v for d, v in sorted(m.items())]
-    save("tvhist.json", out, lambda o: o == out)
+    save("tvhist.json", out, lambda o: {k: v for k, v in o.items() if k != "_day"} == {k: v for k, v in out.items() if k != "_day"})
     print("과거 발표치:", len(series), "지표,", sum(len(v) for v in series.values()), "개")
