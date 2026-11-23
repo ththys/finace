@@ -43,3 +43,30 @@ except Exception:
 merged = {**allinfo, **info}
 save("tvinfo.json", merged, lambda o: o == merged)
 save("tv.json", {"updated": now.strftime("%Y-%m-%d %H:%M UTC"), "events": ev}, lambda o: o.get("events") == ev)
+
+
+# ---------------- 지표별 과거 발표치 (차트·발표일 시장 반응용): 하루 한 번, 중요 지표만 5년 ----------------
+HIST = os.path.join(CAL, "tvhist.json")
+try:
+    hist = json.load(open(HIST, encoding="utf-8"))
+except Exception:
+    hist = {}
+if hist.get("_day") != now.strftime("%Y-%m-%d") or os.getenv("FORCE_HIST"):
+    keys = {e["k"] for e in ev if (e.get("importance") or 0) >= 1}
+    series = {}
+    start = now - dt.timedelta(days=365 * 5 + 30)
+    while start < now:   # 1년씩 나눠 받기
+        end = min(now + dt.timedelta(days=1), start + dt.timedelta(days=366))
+        r2 = urllib.request.Request(URL.format(a=start.strftime("%Y-%m-%dT00:00:00.000Z"), b=end.strftime("%Y-%m-%dT00:00:00.000Z"), c=COUNTRIES), headers=req.headers)
+        rows2 = json.load(urllib.request.urlopen(r2, timeout=60))
+        rows2 = rows2.get("result", rows2) if isinstance(rows2, dict) else rows2
+        for r in rows2:
+            k = r.get("ticker") or (r.get("country", "") + ":" + (r.get("indicator") or r.get("title", "")))
+            if k in keys and r.get("actual") is not None:
+                series.setdefault(k, {})[r["date"][:16]] = [r.get("actual"), r.get("forecast")]
+        start = end
+    out = {"_day": now.strftime("%Y-%m-%d")}
+    for k, m in series.items():
+        out[k] = [[d] + v for d, v in sorted(m.items())]
+    save("tvhist.json", out, lambda o: {k: v for k, v in o.items() if k != "_day"} == {k: v for k, v in out.items() if k != "_day"})
+    print("과거 발표치:", len(series), "지표,", sum(len(v) for v in series.values()), "개")
