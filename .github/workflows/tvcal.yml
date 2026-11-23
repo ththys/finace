@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 .github/scripts/tvcal.py
       - run: |
-          git add cal/tv.json
+          git add cal/tv.json cal/tvinfo.json
           git diff --cached --quiet && exit 0
           git -c user.name=site-bot -c user.email=site-bot@users.noreply.github.com commit -m "Economic calendar"
           for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 5; done

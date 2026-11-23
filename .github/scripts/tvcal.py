@@ -21,15 +21,25 @@ for r in rows:
         info[key] = r["comment"][:600]
     ev.append({k: r.get(k) for k in ("date", "title", "country", "period", "actual", "forecast", "previous", "unit", "scale", "importance")} | {"k": key})
 ev.sort(key=lambda x: x["date"] or "")
-out = {"updated": now.strftime("%Y-%m-%d %H:%M UTC"), "events": ev, "info": info}
-path = os.path.join(os.path.dirname(__file__), "..", "..", "cal", "tv.json")
-old = None
+CAL = os.path.join(os.path.dirname(__file__), "..", "..", "cal")
+
+
+def save(name, data, same):
+    path = os.path.join(CAL, name)
+    try:
+        if same(json.load(open(path, encoding="utf-8"))):
+            return print(name, "바뀐 것 없음")
+    except Exception:
+        pass
+    json.dump(data, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    print(name, "저장")
+
+
+# 설명(info)은 거의 안 바뀌니 따로 (저장소가 덜 커지게). 기존 설명에 새 것만 더함
 try:
-    old = json.load(open(path, encoding="utf-8"))
+    allinfo = json.load(open(os.path.join(CAL, "tvinfo.json"), encoding="utf-8"))
 except Exception:
-    pass
-if old and old.get("events") == ev and old.get("info") == info:
-    print("바뀐 것 없음")
-else:
-    json.dump(out, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    print(f"저장: {len(ev)}개")
+    allinfo = {}
+merged = {**allinfo, **info}
+save("tvinfo.json", merged, lambda o: o == merged)
+save("tv.json", {"updated": now.strftime("%Y-%m-%d %H:%M UTC"), "events": ev}, lambda o: o.get("events") == ev)
