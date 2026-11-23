@@ -51,9 +51,9 @@ try:
     hist = json.load(open(HIST, encoding="utf-8"))
 except Exception:
     hist = {}
-if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 2:
+if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 3:
     keys = {e["k"] for e in ev if (e.get("importance") or 0) >= 1}
-    series = {}
+    series, names = {}, {}
     start = now - dt.timedelta(days=365 * 5 + 30)
     while start < now:   # 한 달씩 나눠 받기 (한 번에 받는 개수에 제한이 있음)
         end = min(now + dt.timedelta(days=1), start + dt.timedelta(days=31))
@@ -62,11 +62,35 @@ if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 2:
         rows2 = rows2.get("result", rows2) if isinstance(rows2, dict) else rows2
         for r in rows2:
             k = r.get("ticker") or (r.get("country", "") + ":" + (r.get("indicator") or r.get("title", "")))
+            if k in keys:
+                names[k] = [r.get("country"), r.get("title")]
             if k in keys and r.get("actual") is not None:
                 series.setdefault(k, {})[r["date"][:16]] = [r.get("actual"), r.get("forecast")]
         start = end
-    out = {"_day": now.strftime("%Y-%m-%d"), "_v": 2}
+    out = {"_day": now.strftime("%Y-%m-%d"), "_v": 3, "_names": names}
     for k, m in series.items():
         out[k] = [[d] + v for d, v in sorted(m.items())]
     save("tvhist.json", out, lambda o: {k: v for k, v in o.items() if k != "_day"} == {k: v for k, v in out.items() if k != "_day"})
     print("과거 발표치:", len(series), "지표,", sum(len(v) for v in series.values()), "개")
+
+
+# ---------------- 미국 주가지수 (FRED, 키 없이): 지표 비교 차트용 ----------------
+def fred(sid, years=11):
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}&cosd={(now - dt.timedelta(days=365 * years)).strftime('%Y-%m-%d')}"
+    rows = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read().decode().splitlines()[1:]
+    d, v = [], []
+    for line in rows:
+        a, b = line.split(",")[:2]
+        if b not in (".", ""):
+            d.append(a); v.append(round(float(b), 2))
+    return {"d": d, "v": v}
+
+
+mk = {}
+for sid in ("SP500", "NASDAQCOM"):
+    try:
+        mk[sid] = fred(sid)
+    except Exception as e:
+        print("FRED", sid, "실패:", e)
+if mk:
+    save("mkt.json", mk, lambda o: o == mk)
