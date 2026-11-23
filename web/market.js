@@ -317,53 +317,79 @@ const EVINFO = {
     watch: ["오후 장 막판 프로그램 매매(차익거래 청산)로 지수가 출렁일 수 있음", "옵션이 많이 몰린 행사가(콜 벽·풋 벽) 근처로 지수가 끌려가는 경향", "동시 만기엔 선물 롤오버와 외국인 베이시스 매매"],
     react: "만기 직전엔 변동성이 커지고, 만기가 지나면 딜러 감마 포지션이 풀리면서 방향이 새로 잡히기도 해요. 수급·매크로 화면의 옵션 감마와 같이 보세요." },
 };
+async function loadEvents() {
+  let C = null; try { C = await (await fetch("cal/events.json", { cache: "no-cache" })).json(); } catch {}
+  const today = kstToday();
+  const evs = [...(C?.events || []), ...expiries(isoMinus(today, 400), isoMinus(today, -400))].sort((a, b) => a[0].localeCompare(b[0]));
+  const stale = C ? Object.entries(C.covered || {}).filter(([, v]) => v < isoMinus(today, -60)).map(([k]) => EVK.find(x => x[0] === k)?.[1] || k) : ["고정 일정"];
+  return { evs, stale, today };
+}
+const EVCOL = { fomc: "var(--up)", cpi: "#b07d2a", nfp: "#2f8f9d", bok: "var(--accent)", exp: "var(--down)" };
+const evDD = (ds, today) => Math.round((new Date(ds + "T00:00:00Z") - new Date(today + "T00:00:00Z")) / 864e5);
+const evFilterHTML = on => `<div class="tabs" id="evf" style="flex-wrap:wrap;margin-bottom:8px">${EVK.map(([k, l]) => `<button data-k="${k}" class="${on.includes(k) ? "on" : ""}"><i style="color:${EVCOL[k]}">●</i> ${l}</button>`).join("")}</div>`;
+const evListHTML = (rows, today, evs) => `<ul class="feed">${rows.map(e => { const n = evDD(e[0], today);
+  return `<li data-i="${evs.indexOf(e)}" style="cursor:pointer"><span class="num ${n <= 3 ? "up" : ""}" style="display:inline-block;min-width:3.4em">${n === 0 ? "오늘" : "D-" + n}</span> <b>${esc(e[2])}</b>
+    <small class="muted">${e[0].slice(5).replace("-", "/")}${e[1] === "fomc" ? " (미국, 한국은 다음 날 새벽 4시)" : ["cpi", "nfp"].includes(e[1]) ? " (한국 시간 밤 10:30)" : ""}${e[3] ? " · " + esc(e[3]) : ""}</small></li>`; }).join("") || `<li class="muted small">고른 종류의 일정이 75일 안에 없어요</li>`}</ul>`;
+/* 홈: 목록만 (누르면 일정 메뉴에서 해석) */
 async function drawEvents() {
   const el = $("#evlist"); if (!el) return;
-  let C = null; try { C = await (await fetch("cal/events.json", { cache: "no-cache" })).json(); } catch {}
-  if (!$("#evlist")) return;
-  const today = kstToday(), on = store.get("evon", EVK.map(k => k[0]));
-  const evs = [...(C?.events || []), ...expiries(isoMinus(today, 60), isoMinus(today, -400))].sort((a, b) => a[0].localeCompare(b[0]));
-  const dd = ds => Math.round((new Date(ds + "T00:00:00Z") - new Date(today + "T00:00:00Z")) / 864e5);
-  const stale = C ? Object.entries(C.covered || {}).filter(([, v]) => v < isoMinus(today, -60)).map(([k]) => EVK.find(x => x[0] === k)?.[1] || k) : ["고정 일정"];
-  const col = { fomc: "var(--up)", cpi: "#b07d2a", nfp: "#2f8f9d", bok: "var(--accent)", exp: "var(--down)" };
-  const usT = k => ["fomc", "cpi", "nfp"].includes(k);
-  let mode = store.get("evmode", "cal"), ym = today.slice(0, 7), pick = null;
+  const { evs, stale, today } = await loadEvents(); if (!document.body.contains(el)) return;
+  const on = store.get("evon", EVK.map(k => k[0]));
+  const draw = () => { el.innerHTML = evFilterHTML(on) + evListHTML(evs.filter(e => on.includes(e[1]) && e[0] >= today && e[0] <= isoMinus(today, -75)).slice(0, 12), today, evs)
+    + `<p class="small" style="margin-top:6px"><a href="#cal">달력과 해석 보기 →</a></p>` + (stale.length ? `<p class="small down">${stale.join(", ")} 다음 해 일정이 아직 안 들어갔어요</p>` : ""); };
+  el.addEventListener("click", e => { const t = e.target.closest("[data-i],#evf button"); if (!t) return;
+    if (t.dataset.i != null) { store.set("evpick", evs[+t.dataset.i][0] + "|" + evs[+t.dataset.i][1]); location.hash = "cal"; return; }
+    const k = t.dataset.k, i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon", on); draw(); });
+  draw();
+}
+/* 일정 메뉴: 달력 + 해석 + 다가오는 목록 */
+async function viewCal(app) {
+  app.innerHTML = `<div><div class="kicker">일정</div><h2>경제 일정 달력</h2>
+    <p class="small muted">FOMC·미국 CPI·고용·한국은행 금리 결정·옵션 만기. 날짜의 일정을 누르면 무엇이고 어떻게 해석하는지 나와요. FOMC는 한국 시간 다음 날 새벽, CPI·고용은 같은 날 밤에 나와요.</p></div>
+    <span class="tabs" id="caltab" style="margin-top:10px">${[["mine", "주요 일정 · 해석"], ["tv", "전체 경제 일정 (TradingView)"]].map(([k, l]) => `<button data-k="${k}" class="${k === store.get("caltab", "mine") ? "on" : ""}">${l}</button>`).join("")}</span>
+    <div id="calbox" style="margin-top:14px"><p class="loading">불러오는 중…</p></div>`;
+  tabsBind("#caltab", k => { store.set("caltab", k); viewCal(app); });
+  if (store.get("caltab", "mine") === "tv") {   // 외부 위젯: 전 세계 경제지표 발표 일정(예상치·이전치·실제치)
+    const box = $("#calbox"), w = document.createElement("div"), sc = document.createElement("script");
+    w.className = "tradingview-widget-container"; w.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
+    sc.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js"; sc.async = true;
+    sc.textContent = JSON.stringify({ colorTheme: isDark() ? "dark" : "light", isTransparent: true, width: "100%", height: 720,
+      locale: "kr", importanceFilter: "0,1", countryFilter: "us,kr,cn,jp,eu" });
+    box.innerHTML = `<p class="small muted">미국·한국·중국·일본·유로존의 중요도 중간 이상 지표. 발표되면 실제치가 채워져요. 화면 위 필터로 나라·중요도를 바꿀 수 있어요. (TradingView 제공, 해석은 '주요 일정 · 해석' 탭)</p>`;
+    w.appendChild(sc); box.appendChild(w); return;
+  }
+  const el = $("#calbox"), { evs, stale, today } = await loadEvents(); if (!document.body.contains(el)) return;
+  const on = store.get("evon", EVK.map(k => k[0])), pk = store.get("evpick", ""); store.set("evpick", "");
+  let pick = evs.find(e => e[0] + "|" + e[1] === pk) || evs.find(e => on.includes(e[1]) && e[0] >= today) || null, ym = (pick?.[0] || today).slice(0, 7);
   const shown = () => evs.filter(e => on.includes(e[1]));
-  const detail = e => { const I = EVINFO[e[1]], n = dd(e[0]);
-    return `<div class="evdet" style="border:1px solid var(--rule);border-left:4px solid ${col[e[1]]};padding:10px 12px;margin-top:10px">
-      <div><b>${esc(e[2])}</b> <span class="small muted">${e[0]}${usT(e[1]) ? " (미국 현지, 한국은 다음 날 새벽·밤)" : ""} · ${n === 0 ? "오늘" : n > 0 ? "D-" + n : -n + "일 전"}</span></div>
+  const detail = e => { const I = EVINFO[e[1]], n = evDD(e[0], today);
+    return `<div style="border:1px solid var(--rule);border-left:4px solid ${EVCOL[e[1]]};padding:12px 14px">
+      <div><b style="font-size:16px">${esc(e[2])}</b></div><div class="small muted">${e[0]}${["fomc", "cpi", "nfp"].includes(e[1]) ? " (미국 현지)" : ""} · ${n === 0 ? "오늘" : n > 0 ? "D-" + n : -n + "일 지남"}</div>
       ${e[3] ? `<div class="small" style="margin-top:4px">${esc(e[3])}</div>` : ""}
-      <p class="small" style="margin:8px 0 4px">${I.what}</p>
-      <div class="small"><b>볼 것</b><ul style="margin:4px 0 6px 18px;padding:0">${I.watch.map(w => `<li>${w}</li>`).join("")}</ul></div>
-      <p class="small" style="margin:0"><b>시장 반응</b> ${I.react}</p></div>`; };
-  const list = () => { const rows = shown().filter(e => e[0] >= today && e[0] <= isoMinus(today, -75)).slice(0, 12);
-    return `<ul class="feed">${rows.map((e, i) => { const n = dd(e[0]);
-      return `<li data-i="${evs.indexOf(e)}" style="cursor:pointer"><span class="num ${n <= 3 ? "up" : ""}" style="display:inline-block;min-width:3.4em">${n === 0 ? "오늘" : "D-" + n}</span> <i style="color:${col[e[1]]}">●</i> <b>${esc(e[2])}</b>
-        <small class="muted">${e[0].slice(5).replace("-", "/")}${e[3] ? " · " + esc(e[3]) : ""}</small></li>`; }).join("") || `<li class="muted small">고른 종류의 일정이 75일 안에 없어요</li>`}</ul>`; };
-  const cal = () => { const [y, m] = ym.split("-").map(Number), first = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate(), pad = first.getUTCDay();
+      <p style="margin:10px 0 6px">${I.what}</p>
+      <div><b>볼 것</b><ul style="margin:4px 0 8px 18px;padding:0">${I.watch.map(w => `<li>${w}</li>`).join("")}</ul></div>
+      <p style="margin:0"><b>시장 반응</b> ${I.react}</p></div>`; };
+  const cal = () => { const [y, m] = ym.split("-").map(Number), pad = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const by = {}; shown().forEach(e => { if (e[0].startsWith(ym)) (by[+e[0].slice(8)] ||= []).push(e); });
     let cells = ""; for (let i = 0; i < pad; i++) cells += "<div></div>";
     for (let d = 1; d <= days; d++) { const ds = `${ym}-${String(d).padStart(2, "0")}`, es = by[d] || [];
-      cells += `<div class="evday${ds === today ? " today" : ""}" style="min-height:52px;border:1px solid var(--rule);padding:2px 3px;font-size:11px;overflow:hidden;${ds === today ? "outline:2px solid var(--accent);" : ""}">
-        <div class="muted">${d}</div>${es.map(e => `<div data-i="${evs.indexOf(e)}" title="${esc(e[2])}" style="cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${col[e[1]]}">● ${esc(EVK.find(k => k[0] === e[1])[1])}</div>`).join("")}</div>`; }
-    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><button class="more" data-mv="-1">◀</button><b>${y}년 ${m}월</b><button class="more" data-mv="1">▶</button></div>
-      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;font-size:11px;text-align:left">${["일", "월", "화", "수", "목", "금", "토"].map(w => `<div class="muted" style="padding:2px 3px">${w}</div>`).join("")}${cells}</div>`; };
+      cells += `<div style="min-height:74px;border:1px solid var(--rule);padding:3px 4px;overflow:hidden;${ds === today ? "outline:2px solid var(--accent);" : ""}${ds < today ? "opacity:.55;" : ""}">
+        <div class="small muted">${d}</div>${es.map(e => `<div data-i="${evs.indexOf(e)}" title="${esc(e[2])}" style="cursor:pointer;font-size:12px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${EVCOL[e[1]]};${pick === e ? "font-weight:700;text-decoration:underline;" : ""}">● ${esc(e[2])}</div>`).join("")}</div>`; }
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><button class="more" data-mv="-1">◀ 이전 달</button><b style="font-size:16px">${y}년 ${m}월</b><button class="more" data-mv="1">다음 달 ▶</button></div>
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">${["일", "월", "화", "수", "목", "금", "토"].map(w => `<div class="small muted" style="padding:2px 4px">${w}</div>`).join("")}${cells}</div>`; };
   const draw = () => {
-    el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="tabs" id="evm">${[["cal", "달력"], ["list", "목록"]].map(([k, l]) => `<button data-k="${k}" class="${k === mode ? "on" : ""}">${l}</button>`).join("")}</span></div>
-      <div class="tabs" id="evf" style="flex-wrap:wrap;margin-bottom:8px">${EVK.map(([k, l]) => `<button data-k="${k}" class="${on.includes(k) ? "on" : ""}"><i style="color:${col[k]}">●</i> ${l}</button>`).join("")}</div>
-      ${mode === "cal" ? cal() : list()}
-      ${pick ? detail(pick) : `<p class="small muted" style="margin-top:8px">일정을 누르면 무엇이고 어떻게 해석하는지 나와요.</p>`}
+    el.innerHTML = evFilterHTML(on) + `<div class="grid" style="align-items:start">
+        <div style="min-width:0">${cal()}</div>
+        <aside style="display:grid;gap:16px;align-content:start;min-width:0">${pick ? detail(pick) : `<p class="small muted">일정을 누르면 해석이 나와요.</p>`}
+          <div><div class="kicker">다가오는 일정</div>${evListHTML(shown().filter(e => e[0] >= today && e[0] <= isoMinus(today, -75)).slice(0, 12), today, evs)}</div></aside></div>
+      <p class="small muted" style="margin-top:10px">출처: 연준(FOMC), 미국 노동통계국(CPI·고용), 한국은행(금통위). 옵션 만기는 매달 둘째 목요일로 계산(휴장이면 앞당겨짐).</p>
       ${stale.length ? `<p class="small down">${stale.join(", ")} 다음 해 일정이 아직 안 들어갔어요</p>` : ""}`;
   };
-  el.addEventListener("click", e => {
-    const t = e.target.closest("[data-i],[data-mv],#evf button,#evm button"); if (!t) return;
-    if (t.dataset.i != null) pick = evs[+t.dataset.i];
-    else if (t.dataset.mv) { const [y, m] = ym.split("-").map(Number), x = new Date(Date.UTC(y, m - 1 + +t.dataset.mv, 1)); ym = x.toISOString().slice(0, 7); }
-    else if (t.closest("#evm")) { mode = t.dataset.k; store.set("evmode", mode); }
+  el.addEventListener("click", e => { const t = e.target.closest("[data-i],[data-mv],#evf button"); if (!t) return;
+    if (t.dataset.i != null) { pick = evs[+t.dataset.i]; ym = pick[0].slice(0, 7); }
+    else if (t.dataset.mv) { const [y, m] = ym.split("-").map(Number); ym = new Date(Date.UTC(y, m - 1 + +t.dataset.mv, 1)).toISOString().slice(0, 7); }
     else { const k = t.dataset.k, i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon", on); }
-    draw();
-  });
-  pick = shown().find(e => e[0] >= today) || null;
+    draw(); });
   draw();
 }
 /* 연속 등락: 지금 몇 일째인지 + 과거에 같은 길이에 처음 닿은 날 이후 수익률 */

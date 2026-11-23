@@ -16,7 +16,7 @@ window.addEventListener("message", e => {
     if (location.hash !== want) history.replaceState(null, "", want);
   } else if (e.data.type === "journal-top") window.scrollTo(0, 0);
 });
-const ROUTES = { journal: viewJournal, home: viewHome, sectors: viewSectors, screen: viewScreen, watch: viewWatch, flow: viewFlow, stock: viewStock, reports: viewReports };
+const ROUTES = { journal: viewJournal, home: viewHome, sectors: viewSectors, screen: viewScreen, watch: viewWatch, flow: viewFlow, stock: viewStock, reports: viewReports, cal: viewCal };
 document.addEventListener("keydown", e => { if (e.key === "Escape") S.onEsc?.(); });
 function route() {
   const seg = location.hash.slice(1).split("/")[0].split("?")[0], k = ROUTES[seg] ? seg : "home";
@@ -62,6 +62,7 @@ const SHELL = `<header class="wrap mast">
   <span class="navgrp">시장</span>
   <a href="#sectors" data-r="sectors">섹터</a>
   <a href="#flow" data-r="flow">수급·매크로</a>
+  <a href="#cal" data-r="cal">일정</a>
   <span class="navsep" aria-hidden="true"></span>
   <a href="#journal" data-r="journal">투자일지</a></div>
   <button type="button" id="themeBtn" class="themebtn" title="라이트/다크 모드 바꾸기">🌙</button>
