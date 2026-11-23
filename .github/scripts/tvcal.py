@@ -74,23 +74,22 @@ if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 3:
     print("과거 발표치:", len(series), "지표,", sum(len(v) for v in series.values()), "개")
 
 
-# ---------------- 미국 주가지수 (FRED, 키 없이): 지표 비교 차트용 ----------------
-def fred(sid, years=11):
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}&cosd={(now - dt.timedelta(days=365 * years)).strftime('%Y-%m-%d')}"
-    rows = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read().decode().splitlines()[1:]
+# ---------------- 미국 주가지수 (Yahoo): 지표 비교 차트용 ----------------
+def yahoo(sym):
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=10y&interval=1d"
+    js = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30))["chart"]["result"][0]
     d, v = [], []
-    for line in rows:
-        a, b = line.split(",")[:2]
-        if b not in (".", ""):
-            d.append(a); v.append(round(float(b), 2))
+    for t, c in zip(js["timestamp"], js["indicators"]["quote"][0]["close"]):
+        if c is not None:
+            d.append(dt.datetime.fromtimestamp(t, dt.timezone(dt.timedelta(hours=-5))).strftime("%Y-%m-%d")); v.append(round(c, 2))
     return {"d": d, "v": v}
 
 
 mk = {}
-for sid in ("SP500", "NASDAQCOM"):
+for key, sym in (("SP500", "%5EGSPC"), ("NASDAQ", "%5EIXIC"), ("US10Y", "%5ETNX")):
     try:
-        mk[sid] = fred(sid)
+        mk[key] = yahoo(sym)
     except Exception as e:
-        print("FRED", sid, "실패:", e)
+        print("Yahoo", key, "실패:", e)
 if mk:
     save("mkt.json", mk, lambda o: o == mk)
