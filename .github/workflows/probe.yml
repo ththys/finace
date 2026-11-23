@@ -1,0 +1,12 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -m 20 -D - -o b.json -H "Origin: https://www.tradingview.com" -H "Referer: https://www.tradingview.com/" -H "User-Agent: Mozilla/5.0" "https://economic-calendar.tradingview.com/events?from=2026-11-23T00:00:00.000Z&to=2026-12-12T00:00:00.000Z&countries=US,KR&minImportance=0" | grep -iE "^HTTP|access-control"
+          python3 -c "
+          import json;j=json.load(open('b.json'));r=j.get('result',j);print(type(r).__name__,len(r));print(json.dumps(r[:3],ensure_ascii=False)[:1500])"
+          echo ---- no origin
+          curl -s -m 20 -o /dev/null -w "%{http_code}\n" "https://economic-calendar.tradingview.com/events?from=2026-11-23T00:00:00.000Z&to=2026-12-12T00:00:00.000Z&countries=US"
