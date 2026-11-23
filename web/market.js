@@ -21,6 +21,12 @@ function viewHome(app) {
       </section>
       <section class="block">
         <div style="display:flex;justify-content:space-between;align-items:end;gap:8px;flex-wrap:wrap">
+          <div><div class="kicker">연속 등락 통계</div><h2>며칠째 빠지는(오르는) 중이고, 과거엔 그다음 어땠나</h2></div>
+          <span class="tabs" id="stkm">${[["IDX_KOSPI", "코스피"], ["IDX_KOSDAQ", "코스닥"]].map(([k, l]) => `<button data-k="${k}" class="${k === store.get("stkm", "IDX_KOSPI") ? "on" : ""}">${l}</button>`).join("")}</span></div>
+        <div id="streak"><p class="loading">불러오는 중…</p></div>
+      </section>
+      <section class="block">
+        <div style="display:flex;justify-content:space-between;align-items:end;gap:8px;flex-wrap:wrap">
           <div><div class="kicker">시장 체력</div><h2>지수 말고 종목들은?</h2></div>
           <span class="tabs" id="brmk">${[["ALL", "전체"], ["KOSPI", "코스피"], ["KOSDAQ", "코스닥"]].map(([k, l]) => `<button data-k="${k}" class="${k === store.get("brmk", "ALL") ? "on" : ""}">${l}</button>`).join("")}</span></div>
         <div id="breadth"><p class="loading">전 종목 계산 중…</p></div>
@@ -102,6 +108,8 @@ function viewHome(app) {
   tabsBind("#ixr", k => { store.set("ixr", +k); drawIndex(); });
   drawIndex();
   // 시장 체력
+  tabsBind("#stkm", k => { store.set("stkm", k); drawStreak(); });
+  drawStreak();
   tabsBind("#brmk", k => { store.set("brmk", k); drawBreadth(); });
   drawBreadth();
   const hr = async () => { if (!FB.user) return reportGate($("#hrep"), []);
@@ -280,6 +288,38 @@ async function renderSectors(start) {
 }
 
 /** 여러 매크로 시리즈를 날짜 합집합으로 맞춤 */
+/* 연속 등락: 지금 몇 일째인지 + 과거에 같은 길이에 처음 닿은 날 이후 수익률 */
+function streakStats(d, v, from = "1990-01-01") {
+  const n = v.length, run = new Int16Array(n);   // +k: k일 연속 상승, -k: 연속 하락
+  for (let i = 1; i < n; i++) { const r = v[i] / v[i - 1] - 1; run[i] = r > 0 ? (run[i - 1] > 0 ? run[i - 1] + 1 : 1) : r < 0 ? (run[i - 1] < 0 ? run[i - 1] - 1 : -1) : 0; }
+  const fwd = (i, h) => i + h < n ? (v[i + h] / v[i] - 1) * 100 : null;
+  const agg = xs => { const a = xs.filter(x => x != null); if (!a.length) return null; const s = [...a].sort((x, y) => x - y);
+    return { n: a.length, up: a.filter(x => x > 0).length / a.length * 100, avg: a.reduce((p, q) => p + q, 0) / a.length, med: s[s.length >> 1] }; };
+  const at = k => { const ev = []; for (let i = 1; i < n; i++) if (d[i] >= from && run[i] === k) ev.push(i); return ev; };
+  const row = k => { const ev = at(k); return { k, ev, cnt: ev.length, more: ev.filter(i => i + 1 < n && Math.sign(run[i + 1]) === Math.sign(k)).length,
+    f1: agg(ev.map(i => fwd(i, 1))), f5: agg(ev.map(i => fwd(i, 5))), f20: agg(ev.map(i => fwd(i, 20))) }; };
+  return { cur: run[n - 1], row };
+}
+async function drawStreak() {
+  const el = $("#streak"); if (!el) return;
+  const M = await loadX("macro").catch(() => null), k = store.get("stkm", "IDX_KOSPI"), ser = M?.[k];
+  if (!$("#streak")) return;
+  if (!ser) { el.innerHTML = NODATA("지수"); return; }
+  const { d, v } = ser, { cur, row } = streakStats(d, v), nm = k === "IDX_KOSPI" ? "코스피" : "코스닥", dir = cur < 0 ? "하락" : "상승", sg = cur < 0 ? -1 : 1;
+  const show = Math.max(1, Math.abs(cur)), lens = [...new Set([3, 4, 5, 6, 7, 8, 9, 10, show])].sort((a, b) => a - b);
+  const now = row(sg * show), f = (a, key) => a && a[key] != null ? (key === "up" ? a.up.toFixed(0) + "%" : fmtPct(a[key])) : "–";
+  const cell = a => a ? `<td class="${cls(a.avg)}">${fmtPct(a.avg)}<small> · 오를 확률 ${a.up.toFixed(0)}%</small></td>` : "<td>–</td>";
+  el.innerHTML = `<div class="stats">
+      <div><div class="lbl">${nm} 지금</div><div class="v ${cur < 0 ? "down" : cur > 0 ? "up" : ""}">${cur ? Math.abs(cur) + "일 연속 " + dir : "보합"}</div><div class="s">${d.at(-1)} 종가까지</div></div>
+      <div><div class="lbl">1990년 이후 같은 경우</div><div class="v">${now.cnt}번</div><div class="s">그중 하루 더 ${dir}: ${now.more}번 (${now.cnt ? (now.more / now.cnt * 100).toFixed(0) : 0}%)</div></div>
+      <div><div class="lbl">다음 날</div><div class="v ${cls(now.f1?.avg)}">${f(now.f1, "avg")}</div><div class="s">오를 확률 ${f(now.f1, "up")} · 중간값 ${f(now.f1, "med")}</div></div>
+      <div><div class="lbl">1주 뒤 (5거래일)</div><div class="v ${cls(now.f5?.avg)}">${f(now.f5, "avg")}</div><div class="s">오를 확률 ${f(now.f5, "up")}</div></div>
+      <div><div class="lbl">1개월 뒤 (20거래일)</div><div class="v ${cls(now.f20?.avg)}">${f(now.f20, "avg")}</div><div class="s">오를 확률 ${f(now.f20, "up")}</div></div></div>
+    <div class="tablewrap"><table><thead><tr><th>연속 ${dir}</th><th>횟수</th><th>하루 더</th><th>다음 날 평균</th><th>1주 뒤</th><th>1개월 뒤</th></tr></thead><tbody>
+      ${lens.map(L => { const r = row(sg * L); return `<tr${L === show ? ' style="background:color-mix(in srgb, var(--accent) 12%, transparent)"' : ""}><td class="name">${L}일${L === show ? " ← 지금" : ""}</td><td>${r.cnt}</td><td>${r.cnt ? (r.more / r.cnt * 100).toFixed(0) + "%" : "–"}</td>${cell(r.f1)}${cell(r.f5)}${cell(r.f20)}</tr>`; }).join("")}
+    </tbody></table></div>
+    <p class="small muted">${show}일째 연속 ${dir}에 처음 닿은 날 종가 기준. 최근 사례: ${now.ev.slice(-6).reverse().map(i => d[i]).join(" · ") || "없음"}. 표본이 적으면(10번 미만) 참고만 하세요.</p>`;
+}
 function alignMacro(M, keys, start) {
   const set = new Set(); keys.forEach(k => M[k]?.d.forEach(d => d >= start && set.add(d)));
   const d = [...set].sort();
@@ -350,10 +390,23 @@ async function renderFlow(start) {
         <div><div class="lbl">레버리지 순자산</div><div class="v">${fmtJo(lev.at(-1)).replace("+", "")}</div><div class="s">기간 자금 ${fmtJo(lf.at(-1))}</div></div>
         <div><div class="lbl">인버스 순자산</div><div class="v">${fmtJo(inv.at(-1)).replace("+", "")}</div><div class="s">기간 자금 ${fmtJo(vf.at(-1))}</div></div>
         <div><div class="lbl">레버리지 ÷ 인버스</div><div class="v">${inv.at(-1) ? (lev.at(-1) / inv.at(-1)).toFixed(2) + "배" : "–"}</div><div class="s">기간 시작 ${inv[0] ? (lev[0] / inv[0]).toFixed(2) + "배" : "–"}</div></div></div>
+      <div id="f2rb"></div>
       <div class="two"><div class="chart"><h3>순자산 <small>억원</small></h3><div id="fc2a"></div></div>
         <div class="chart"><h3>누적 자금 유출입 <small>상장주식수 변화 × NAV, 억원</small></h3><div id="fc2b"></div></div></div><div id="ft2"></div>`;
     lineChart($("#fc2a"), d, [{ label: "레버리지", data: lev, color: css("--up"), width: 2 }, { label: "인버스", data: inv, color: css("--down"), width: 2 }], { compact: true });
     lineChart($("#fc2b"), d, [{ label: "레버리지", data: lf, color: css("--up"), width: 2 }, { label: "인버스", data: vf, color: css("--down"), width: 2 }], { compact: true, ref: 0 });
+    // 장 마감 기계적 매매 추정: 레버리지·인버스는 매일 배율을 맞추려고 지수 방향으로 사고팖 = 전일 순자산 × L(L−1) × 지수 등락률
+    const lev2 = nm => /인버스\s*2X/i.test(nm) ? -2 : /인버스/.test(nm) ? -1 : /2X|레버리지/i.test(nm) ? 2 : 1;
+    const ixmap = {}; ["IDX_KOSPI", "IDX_KOSDAQ"].forEach(k => { const z = M?.[k]; if (z) { const mp = new Map(); for (let i = 1; i < z.d.length; i++) mp.set(z.d[i], z.v[i] / z.v[i - 1] - 1); ixmap[k] = mp; } });
+    const rb = E.d.map((dt, i) => i === 0 ? null : E.list.reduce((a, x) => { const L = lev2(x.n), r = ixmap[/코스닥/.test(x.n) ? "IDX_KOSDAQ" : "IDX_KOSPI"]?.get(dt), a0 = x.aum[i - 1];
+      return r == null || !a0 ? a : a + a0 * L * (L - 1) * r; }, 0));
+    const per1 = E.list.reduce((a, x) => { const L = lev2(x.n); return a + (x.aum.at(-1) || 0) * L * (L - 1) * 0.01; }, 0), rbNow = rb.at(-1);
+    $("#f2rb").innerHTML = `<div class="stats">
+        <div><div class="lbl">최근 장 마감 기계적 매매 (추정)</div><div class="v ${cls(rbNow)}">${rbNow != null ? fmtJo(rbNow) : "–"}</div><div class="s">${E.d.at(-1)} · +면 매수, −면 매도 (주로 선물)</div></div>
+        <div><div class="lbl">지수 1% 움직이면</div><div class="v">${fmtJo(per1).replace("+", "")}</div><div class="s">그 방향으로 장 마감에 기계적으로 사고팔 규모</div></div>
+        <div><div class="lbl">최근 5일 합계</div><div class="v ${cls(rb.slice(-5).reduce((a, v) => a + (v || 0), 0))}">${fmtJo(rb.slice(-5).reduce((a, v) => a + (v || 0), 0))}</div><div class="s">하락 때 더 팔고 상승 때 더 사는 쪽 → 추세를 키움</div></div></div>
+      <div class="chart"><h3>레버리지·인버스 ETF 리밸런싱 추정 <small>억원 · 전일 순자산 × 배율(배율−1) × 지수 등락률</small></h3><div id="fc2r"></div></div>`;
+    lineChart($("#fc2r"), d, [{ label: "기계적 매매", data: rb.slice(b), color: css("--accent"), width: 1.8 }], { ref: 0, height: 200 });
     sortableTable($("#ft2"), [
       { k: "n", l: "ETF", f: r => `<td class="name">${esc(r.n)}<small>${r.id} · ${r.k}</small></td>` },
       { k: "aum", l: "순자산", f: r => `<td>${fmtJo(r.aum).replace("+", "")}</td>` },
@@ -397,9 +450,22 @@ async function renderFlow(start) {
   };
   const stat = (lbl, k, unit = "", n = 20, nd = 2, per = "거래일") => { const v = lastOf(M, k), c = chgOf(M, k, n);
     return `<div><div class="lbl">${lbl}</div><div class="v">${v == null ? "–" : v.toFixed(nd) + unit}</div><div class="s">${c == null ? "" : `${n}${per} 전보다 ${c > 0 ? "+" : ""}${c.toFixed(nd)}`} · ${M._asof?.[k] || ""}</div></div>`; };
-  $("#f4").innerHTML = `<div class="stats">${stat("VIX", "VIXCLS")}${stat("VKOSPI", "VKOSPI")}</div>
-    <div class="chart"><h3>VIX · VKOSPI</h3><div id="fm4"></div></div>`;
+  // 내재변동성(VKOSPI) vs 실현변동성(코스피 20일, 연율)
+  const KX = M.IDX_KOSPI, rv = new Map();
+  if (KX) for (let i = 20; i < KX.v.length; i++) { let s = 0, s2 = 0; for (let j = i - 19; j <= i; j++) { const r = Math.log(KX.v[j] / KX.v[j - 1]); s += r; s2 += r * r; }
+    rv.set(KX.d[i], Math.sqrt(Math.max(0, (s2 - s * s / 20) / 19) * 252) * 100); }
+  const vk = M.VKOSPI, ivd = vk ? vk.d.filter(x => rv.has(x)) : [], ivv = ivd.map(x => vk.v[vk.d.indexOf(x)]), rvv = ivd.map(x => rv.get(x));
+  const ivNow = ivv.at(-1), rvNow = rvv.at(-1), prem = ivNow != null && rvNow != null ? ivNow - rvNow : null;
+  $("#f4").innerHTML = `<div class="stats">${stat("VIX", "VIXCLS")}${stat("VKOSPI", "VKOSPI")}
+      <div><div class="lbl">코스피 실현변동성 20일</div><div class="v">${rvNow != null ? rvNow.toFixed(1) + "%" : "–"}</div><div class="s">실제로 움직인 폭, 연율</div></div>
+      <div><div class="lbl">공포 프리미엄</div><div class="v ${prem > 0 ? "up" : "down"}">${prem != null ? (prem > 0 ? "+" : "") + prem.toFixed(1) + "%p" : "–"}</div><div class="s">VKOSPI − 실현변동성. 클수록 앞으로 더 흔들릴 거라고 비싸게 값을 매김</div></div>
+      <div><div class="lbl">하루 예상 변동폭</div><div class="v">${ivNow != null ? "±" + (ivNow / Math.sqrt(252)).toFixed(2) + "%" : "–"}</div><div class="s">VKOSPI ÷ √252 · 하루 동안 위아래로 이만큼 (1표준편차, 약 68%)</div></div></div>
+    <div class="two"><div class="chart"><h3>VIX · VKOSPI</h3><div id="fm4"></div></div>
+      <div class="chart"><h3>내재 vs 실현 변동성 <small>VKOSPI · 코스피 20일 실현, 연율 %</small></h3><div id="fm4b"></div></div></div>`;
   mchart($("#fm4"), ["VIXCLS", "VKOSPI"], ["VIX", "VKOSPI"], {}, [css("--ink"), css("--up")]);
+  if (ivd.length > 2) lineChart($("#fm4b"), ivd, [{ label: "VKOSPI (내재)", data: ivv, color: css("--up"), width: 2 }, { label: "실현 20일", data: rvv, color: css("--ink"), width: 1.6 },
+    { label: "프리미엄", data: ivv.map((x, i) => x - rvv[i]), color: css("--faint"), dash: [4, 3] }], { height: 220, ref: 0 });
+  else $("#fm4b").innerHTML = `<p class="small muted">VKOSPI 데이터가 쌓이면 보여요</p>`;
   const dk = M.DXY ? "DXY" : "DTWEXBGS";
   $("#f5").innerHTML = `<div class="stats">${stat(dk === "DXY" ? "달러인덱스" : "달러(브로드)", dk)}${stat("달러 변동성 10일", "DXY_RV10", "%")}${stat("원/달러", "DEXKOUS", "", 20, 1)}${stat("엔/달러", "DEXJPUS", "", 4, 2, "주")}</div>
     <div class="two"><div class="chart"><h3>달러 ${dk === "DXY" ? "인덱스" : "(브로드)"}</h3><div id="fm5a"></div></div>
