@@ -40,6 +40,7 @@ function viewHome(app) {
       </section>
     </div>
     <aside style="display:grid;grid-template-columns:minmax(0,1fr);gap:26px;align-content:start">
+      <section class="block" id="evbox"><div class="kicker">다가오는 일정</div><div id="evlist"><p class="loading">불러오는 중…</p></div></section>
       <section class="block" id="lnalert" style="display:none"></section>
       <section class="block">
         <div class="kicker">등락률 · 거래대금 상위</div>
@@ -108,6 +109,7 @@ function viewHome(app) {
   tabsBind("#ixr", k => { store.set("ixr", +k); drawIndex(); });
   drawIndex();
   // 시장 체력
+  drawEvents();
   tabsBind("#stkm", k => { store.set("stkm", k); drawStreak(); });
   drawStreak();
   tabsBind("#brmk", k => { store.set("brmk", k); drawBreadth(); });
@@ -288,6 +290,36 @@ async function renderSectors(start) {
 }
 
 /** 여러 매크로 시리즈를 날짜 합집합으로 맞춤 */
+/* 다가오는 일정: cal/events.json(고정 일정) + 옵션 만기(계산). 종류별로 켜고 끔 */
+const EVK = [["fomc", "FOMC"], ["cpi", "미국 CPI"], ["nfp", "미국 고용"], ["bok", "한은 금리"], ["exp", "옵션 만기"]];
+function expiries(from, to) {   // 코스피200 옵션·선물: 매달 둘째 목요일 (3·6·9·12월은 선물 동시 만기). 휴장이면 하루 앞당겨짐
+  const out = [], d0 = new Date(from + "T00:00:00Z"), d1 = new Date(to + "T00:00:00Z");
+  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); new Date(Date.UTC(y, m, 1)) <= d1; m++ === 11 && (m = 0, y++)) {
+    const first = new Date(Date.UTC(y, m, 1)), th = 1 + ((4 - first.getUTCDay() + 7) % 7) + 7, ds = new Date(Date.UTC(y, m, th)).toISOString().slice(0, 10);
+    if (ds >= from && ds <= to) out.push([ds, "exp", (m % 3 === 2 ? "선물·옵션 동시 만기" : "옵션 만기"), m % 3 === 2 ? "쿼드러플 위칭, 변동성 주의" : ""]);
+  }
+  return out;
+}
+async function drawEvents() {
+  const el = $("#evlist"); if (!el) return;
+  let C = null; try { C = await (await fetch("cal/events.json", { cache: "no-cache" })).json(); } catch {}
+  if (!$("#evlist")) return;
+  const today = kstToday(), until = isoMinus(today, -75), on = store.get("evon", EVK.map(k => k[0]));
+  const all = [...(C?.events || []), ...expiries(today, until)].filter(e => e[0] >= today && e[0] <= until).sort((a, b) => a[0].localeCompare(b[0]));
+  const dd = ds => Math.round((new Date(ds + "T00:00:00Z") - new Date(today + "T00:00:00Z")) / 864e5);
+  const stale = C ? Object.entries(C.covered || {}).filter(([, v]) => v < isoMinus(today, -60)).map(([k]) => EVK.find(x => x[0] === k)?.[1] || k) : ["고정 일정"];
+  const draw = () => {
+    const rows = all.filter(e => on.includes(e[1])).slice(0, 12);
+    el.innerHTML = `<div class="tabs" id="evf" style="flex-wrap:wrap;margin-bottom:8px">${EVK.map(([k, l]) => `<button data-k="${k}" class="${on.includes(k) ? "on" : ""}">${l}</button>`).join("")}</div>
+      <ul class="feed">${rows.map(e => { const n = dd(e[0]);
+        return `<li><span class="num ${n <= 3 ? "up" : ""}" style="display:inline-block;min-width:3.4em">${n === 0 ? "오늘" : "D-" + n}</span> <b>${esc(e[2])}</b>
+          <small class="muted">${e[0].slice(5).replace("-", "/")}${["fomc", "cpi", "nfp"].includes(e[1]) ? " (미국, 한국은 다음 날 새벽)" : ""}${e[3] ? " · " + esc(e[3]) : ""}</small></li>`; }).join("") || `<li class="muted small">고른 종류의 일정이 75일 안에 없어요</li>`}</ul>
+      ${stale.length ? `<p class="small down">${stale.join(", ")} 다음 해 일정이 아직 안 들어갔어요</p>` : ""}`;
+    el.querySelector("#evf").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k;
+      const i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon", on); draw(); });
+  };
+  draw();
+}
 /* 연속 등락: 지금 몇 일째인지 + 과거에 같은 길이에 처음 닿은 날 이후 수익률 */
 function streakStats(d, v, from = "1990-01-01") {
   const n = v.length, run = new Int16Array(n);   // +k: k일 연속 상승, -k: 연속 하락
