@@ -300,24 +300,70 @@ function expiries(from, to) {   // 코스피200 옵션·선물: 매달 둘째 �
   }
   return out;
 }
+const EVINFO = {
+  fomc: { what: "미국 연준이 기준금리를 정하는 회의. 한국 시간 다음 날 새벽 4시 결정문, 4시 30분 의장 기자회견. '점도표' 회의는 위원들의 앞으로 금리 예상도 같이 나와요.",
+    watch: ["금리를 올렸나·내렸나·동결했나보다 시장 예상(선물 가격)과 달랐는지가 중요", "결정문 문구 변화와 기자회견 말투(매파=긴축, 비둘기=완화)", "점도표의 내년 금리 중간값이 지난번보다 위인지 아래인지"],
+    react: "예상보다 매파적이면 달러·미국 금리 상승 → 원화 약세, 외국인 매도, 성장주 약세. 비둘기면 반대. 한국 시장 반응은 다음 날 아침 장에 나와요." },
+  cpi: { what: "미국 소비자물가. 한국 시간 밤 10시 30분(서머타임 땐 9시 30분) 발표. 연준이 금리를 정할 때 가장 크게 보는 숫자 중 하나예요.",
+    watch: ["전월 대비 근원 CPI(식료품·에너지 뺀 것)가 예상보다 높은지 낮은지", "주거비·서비스 물가가 꺾이는지", "0.1%p 차이에도 시장이 크게 움직여요"],
+    react: "예상보다 높으면 금리 인하 기대 축소 → 미국 금리·달러 상승, 주식 약세. 낮으면 반대. 금리 인상·인하 확률이 바로 바뀌어요." },
+  nfp: { what: "미국 고용보고서(비농업 일자리 수·실업률·임금). 보통 매달 첫 금요일 한국 시간 밤 10시 30분.",
+    watch: ["일자리 증가 수가 예상보다 많은지", "실업률 방향", "시간당 임금 상승률(물가로 이어짐)", "지난달 수치 수정 폭"],
+    react: "고용이 너무 강하면 금리 인하가 늦어진다고 보고 금리 상승, 너무 약하면 경기 걱정. '적당히 식는' 숫자가 주식엔 가장 좋아요." },
+  bok: { what: "한국은행 금융통화위원회가 기준금리를 정하는 날. 오전 10시쯤 발표, 이후 총재 기자간담회.",
+    watch: ["금리 결정과 소수의견(누가 반대했나)", "3개월 뒤 금리 전망(포워드 가이던스)에서 인하·인상 의견 수", "환율·집값에 대한 총재 발언"],
+    react: "예상보다 매파적이면 원화 강세·채권 금리 상승, 은행주엔 유리하고 성장주엔 불리. 환율이 높을 땐 금리 결정이 원/달러에 바로 반영돼요." },
+  exp: { what: "코스피200 옵션 만기일(매달 둘째 목요일). 3·6·9·12월은 선물까지 같이 끝나는 동시 만기예요.",
+    watch: ["오후 장 막판 프로그램 매매(차익거래 청산)로 지수가 출렁일 수 있음", "옵션이 많이 몰린 행사가(콜 벽·풋 벽) 근처로 지수가 끌려가는 경향", "동시 만기엔 선물 롤오버와 외국인 베이시스 매매"],
+    react: "만기 직전엔 변동성이 커지고, 만기가 지나면 딜러 감마 포지션이 풀리면서 방향이 새로 잡히기도 해요. 수급·매크로 화면의 옵션 감마와 같이 보세요." },
+};
 async function drawEvents() {
   const el = $("#evlist"); if (!el) return;
   let C = null; try { C = await (await fetch("cal/events.json", { cache: "no-cache" })).json(); } catch {}
   if (!$("#evlist")) return;
-  const today = kstToday(), until = isoMinus(today, -75), on = store.get("evon", EVK.map(k => k[0]));
-  const all = [...(C?.events || []), ...expiries(today, until)].filter(e => e[0] >= today && e[0] <= until).sort((a, b) => a[0].localeCompare(b[0]));
+  const today = kstToday(), on = store.get("evon", EVK.map(k => k[0]));
+  const evs = [...(C?.events || []), ...expiries(isoMinus(today, 60), isoMinus(today, -400))].sort((a, b) => a[0].localeCompare(b[0]));
   const dd = ds => Math.round((new Date(ds + "T00:00:00Z") - new Date(today + "T00:00:00Z")) / 864e5);
   const stale = C ? Object.entries(C.covered || {}).filter(([, v]) => v < isoMinus(today, -60)).map(([k]) => EVK.find(x => x[0] === k)?.[1] || k) : ["고정 일정"];
+  const col = { fomc: "var(--up)", cpi: "#b07d2a", nfp: "#2f8f9d", bok: "var(--accent)", exp: "var(--down)" };
+  const usT = k => ["fomc", "cpi", "nfp"].includes(k);
+  let mode = store.get("evmode", "cal"), ym = today.slice(0, 7), pick = null;
+  const shown = () => evs.filter(e => on.includes(e[1]));
+  const detail = e => { const I = EVINFO[e[1]], n = dd(e[0]);
+    return `<div class="evdet" style="border:1px solid var(--rule);border-left:4px solid ${col[e[1]]};padding:10px 12px;margin-top:10px">
+      <div><b>${esc(e[2])}</b> <span class="small muted">${e[0]}${usT(e[1]) ? " (미국 현지, 한국은 다음 날 새벽·밤)" : ""} · ${n === 0 ? "오늘" : n > 0 ? "D-" + n : -n + "일 전"}</span></div>
+      ${e[3] ? `<div class="small" style="margin-top:4px">${esc(e[3])}</div>` : ""}
+      <p class="small" style="margin:8px 0 4px">${I.what}</p>
+      <div class="small"><b>볼 것</b><ul style="margin:4px 0 6px 18px;padding:0">${I.watch.map(w => `<li>${w}</li>`).join("")}</ul></div>
+      <p class="small" style="margin:0"><b>시장 반응</b> ${I.react}</p></div>`; };
+  const list = () => { const rows = shown().filter(e => e[0] >= today && e[0] <= isoMinus(today, -75)).slice(0, 12);
+    return `<ul class="feed">${rows.map((e, i) => { const n = dd(e[0]);
+      return `<li data-i="${evs.indexOf(e)}" style="cursor:pointer"><span class="num ${n <= 3 ? "up" : ""}" style="display:inline-block;min-width:3.4em">${n === 0 ? "오늘" : "D-" + n}</span> <i style="color:${col[e[1]]}">●</i> <b>${esc(e[2])}</b>
+        <small class="muted">${e[0].slice(5).replace("-", "/")}${e[3] ? " · " + esc(e[3]) : ""}</small></li>`; }).join("") || `<li class="muted small">고른 종류의 일정이 75일 안에 없어요</li>`}</ul>`; };
+  const cal = () => { const [y, m] = ym.split("-").map(Number), first = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate(), pad = first.getUTCDay();
+    const by = {}; shown().forEach(e => { if (e[0].startsWith(ym)) (by[+e[0].slice(8)] ||= []).push(e); });
+    let cells = ""; for (let i = 0; i < pad; i++) cells += "<div></div>";
+    for (let d = 1; d <= days; d++) { const ds = `${ym}-${String(d).padStart(2, "0")}`, es = by[d] || [];
+      cells += `<div class="evday${ds === today ? " today" : ""}" style="min-height:52px;border:1px solid var(--rule);padding:2px 3px;font-size:11px;overflow:hidden;${ds === today ? "outline:2px solid var(--accent);" : ""}">
+        <div class="muted">${d}</div>${es.map(e => `<div data-i="${evs.indexOf(e)}" title="${esc(e[2])}" style="cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${col[e[1]]}">● ${esc(EVK.find(k => k[0] === e[1])[1])}</div>`).join("")}</div>`; }
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><button class="more" data-mv="-1">◀</button><b>${y}년 ${m}월</b><button class="more" data-mv="1">▶</button></div>
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;font-size:11px;text-align:left">${["일", "월", "화", "수", "목", "금", "토"].map(w => `<div class="muted" style="padding:2px 3px">${w}</div>`).join("")}${cells}</div>`; };
   const draw = () => {
-    const rows = all.filter(e => on.includes(e[1])).slice(0, 12);
-    el.innerHTML = `<div class="tabs" id="evf" style="flex-wrap:wrap;margin-bottom:8px">${EVK.map(([k, l]) => `<button data-k="${k}" class="${on.includes(k) ? "on" : ""}">${l}</button>`).join("")}</div>
-      <ul class="feed">${rows.map(e => { const n = dd(e[0]);
-        return `<li><span class="num ${n <= 3 ? "up" : ""}" style="display:inline-block;min-width:3.4em">${n === 0 ? "오늘" : "D-" + n}</span> <b>${esc(e[2])}</b>
-          <small class="muted">${e[0].slice(5).replace("-", "/")}${["fomc", "cpi", "nfp"].includes(e[1]) ? " (미국, 한국은 다음 날 새벽)" : ""}${e[3] ? " · " + esc(e[3]) : ""}</small></li>`; }).join("") || `<li class="muted small">고른 종류의 일정이 75일 안에 없어요</li>`}</ul>
+    el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="tabs" id="evm">${[["cal", "달력"], ["list", "목록"]].map(([k, l]) => `<button data-k="${k}" class="${k === mode ? "on" : ""}">${l}</button>`).join("")}</span></div>
+      <div class="tabs" id="evf" style="flex-wrap:wrap;margin-bottom:8px">${EVK.map(([k, l]) => `<button data-k="${k}" class="${on.includes(k) ? "on" : ""}"><i style="color:${col[k]}">●</i> ${l}</button>`).join("")}</div>
+      ${mode === "cal" ? cal() : list()}
+      ${pick ? detail(pick) : `<p class="small muted" style="margin-top:8px">일정을 누르면 무엇이고 어떻게 해석하는지 나와요.</p>`}
       ${stale.length ? `<p class="small down">${stale.join(", ")} 다음 해 일정이 아직 안 들어갔어요</p>` : ""}`;
-    el.querySelector("#evf").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k;
-      const i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon", on); draw(); });
   };
+  el.addEventListener("click", e => {
+    const t = e.target.closest("[data-i],[data-mv],#evf button,#evm button"); if (!t) return;
+    if (t.dataset.i != null) pick = evs[+t.dataset.i];
+    else if (t.dataset.mv) { const [y, m] = ym.split("-").map(Number), x = new Date(Date.UTC(y, m - 1 + +t.dataset.mv, 1)); ym = x.toISOString().slice(0, 7); }
+    else if (t.closest("#evm")) { mode = t.dataset.k; store.set("evmode", mode); }
+    else { const k = t.dataset.k, i = on.indexOf(k); i >= 0 ? on.splice(i, 1) : on.push(k); store.set("evon", on); }
+    draw();
+  });
+  pick = shown().find(e => e[0] >= today) || null;
   draw();
 }
 /* 연속 등락: 지금 몇 일째인지 + 과거에 같은 길이에 처음 닿은 날 이후 수익률 */
