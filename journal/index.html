@@ -96,6 +96,7 @@ textarea#body{min-height:420px;font:14px/1.6 ui-monospace,Consolas,"Noto Sans KR
 :root[data-theme="dark"] .pu{color:#f0605a} :root[data-theme="dark"] .pd{color:#5d93ee}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pu{color:#f0605a} :root:not([data-theme="light"]) .pd{color:#5d93ee}}
 .chip .pc{font-weight:600;font-size:11px}
+.chip .px{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
 /* 종목 자동완성 */
 .tkbox{position:relative}
 .tksug{position:absolute;left:0;right:0;top:100%;z-index:20;list-style:none;margin:4px 0 0;padding:4px 0;background:var(--card);border:1px solid var(--line);border-radius:8px;max-height:280px;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.18)}
@@ -293,7 +294,7 @@ window.openChart = openChart;
 function fillChips(root){
   root.querySelectorAll(".chip.tk[data-code][data-date]").forEach(async el => {
     const r = await sinceWritten(el.dataset.code, el.dataset.date); if (!r) return;
-    el.insertAdjacentHTML("beforeend", ` <b class="pc ${r.chg > 0 ? "pu" : r.chg < 0 ? "pd" : ""}">${pctTxt(r.chg)}</b>`);
+    el.insertAdjacentHTML("beforeend", ` <span class="px" title="${esc(r.from.d)} 종가 → ${esc(r.to.d)} 종가">${fmtW(r.from.p)} → ${fmtW(r.to.p)}</span> <b class="pc ${r.chg > 0 ? "pu" : r.chg < 0 ? "pd" : ""}">${pctTxt(r.chg)}</b>`);
   });
 }
 const tickersText = ts => (ts || []).map(t => t.code ? `${t.code} ${t.name}` : t.name).join(", ");
