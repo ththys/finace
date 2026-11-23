@@ -51,7 +51,7 @@ try:
     hist = json.load(open(HIST, encoding="utf-8"))
 except Exception:
     hist = {}
-if hist.get("_day") != now.strftime("%Y-%m-%d") or os.getenv("FORCE_HIST"):
+if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 2:
     keys = {e["k"] for e in ev if (e.get("importance") or 0) >= 1}
     series = {}
     start = now - dt.timedelta(days=365 * 5 + 30)
@@ -65,8 +65,8 @@ if hist.get("_day") != now.strftime("%Y-%m-%d") or os.getenv("FORCE_HIST"):
             if k in keys and r.get("actual") is not None:
                 series.setdefault(k, {})[r["date"][:16]] = [r.get("actual"), r.get("forecast")]
         start = end
-    out = {"_day": now.strftime("%Y-%m-%d")}
+    out = {"_day": now.strftime("%Y-%m-%d"), "_v": 2}
     for k, m in series.items():
         out[k] = [[d] + v for d, v in sorted(m.items())]
-    save("tvhist.json", out, lambda o: {k: v for k, v in o.items() if k != "_day"} == {k: v for k, v in out.items() if k != "_day"})
+    save("tvhist.json", out, lambda o: o == out)
     print("과거 발표치:", len(series), "지표,", sum(len(v) for v in series.values()), "개")
