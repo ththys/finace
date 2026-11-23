@@ -172,6 +172,8 @@ def scenario(base, out):
         pg.evaluate("location.hash='cal'"); pg.wait_for_timeout(1500); pg.screenshot(path=os.path.join(out, "_cal.png"), full_page=True)
         if pg.locator("#calbox [data-i]:has-text('소매판매')").count():
             pg.locator("#calbox [data-i]:has-text('소매판매')").first.click(); pg.wait_for_timeout(800); pg.screenshot(path=os.path.join(out, "_cal_tv.png"), full_page=True)
+        pg.evaluate("store.set('caltab','cmp'); location.hash='home'"); pg.wait_for_timeout(500); pg.evaluate("location.hash='cal'"); pg.wait_for_timeout(2000)
+        pg.screenshot(path=os.path.join(out, "_cal_cmp.png"), full_page=True); pg.evaluate("store.set('caltab','mine')")
         pg.evaluate("location.hash='watch'"); snap("watch", 5000)
         pg.locator("#wt tbody tr").first.hover(); pg.wait_for_timeout(400)   # 표에 마우스 → 그 종목 선만 진하게 (눈으로 확인용, 비교 안 함)
         pg.screenshot(path=os.path.join(out, "_watch_focus.png"))

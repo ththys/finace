@@ -365,7 +365,7 @@ async function drawEvents() {
   draw();
 }
 /* 지표 발표 때 시장 반응: 발표 시각 이후 첫 종가 − 직전 종가. 서프라이즈(실제−예상)와의 상관 */
-const REACT = [["IDX_KOSPI", "코스피", "%"], ["DGS2", "미국 2년 금리", "bp"], ["DXY", "달러인덱스", "%"], ["DEXKOUS", "원/달러", "%"]];
+const REACT = [["IDX_KOSPI", "코스피", "%"], ["SP500", "S&P 500", "%"], ["DGS2", "미국 2년 금리", "bp"], ["US10Y", "미국 10년 금리", "bp"], ["DXY", "달러인덱스", "%"], ["DEXKOUS", "원/달러", "%"]];
 function reactions(H, M) {
   return REACT.map(([k, nm, u]) => { const z = M?.[k]; if (!z) return null;
     const rows = H.map(([iso, a, f]) => { const ut = new Date(iso + ":00Z"), kst = new Date(ut.getTime() + 9 * 3600e3).toISOString(), us = new Date(ut.getTime() - 5 * 3600e3).toISOString();
@@ -380,11 +380,62 @@ function reactions(H, M) {
     const hi = rows.filter(q => q.s > 0), lo = rows.filter(q => q.s < 0), avg = a => a.length ? a.reduce((p, q) => p + q.r, 0) / a.length : null;
     return { k, nm, u, n: rows.length, corr: sxx && syy ? sxy / Math.sqrt(sxx * syy) : null, hi: avg(hi), nhi: hi.length, lo: avg(lo), nlo: lo.length }; }).filter(Boolean);
 }
+/* 지표 vs 시장: 발표치(왼쪽 축)와 시장 지표 여러 개(각자 축)를 한 차트에 */
+const CMPM = [["SP500", "S&P 500", "mkt"], ["NASDAQ", "나스닥", "mkt"], ["IDX_KOSPI", "코스피", "macro"], ["DGS2", "미국 2년 금리", "macro"], ["US10Y", "미국 10년 금리", "mkt"],
+  ["DXY", "달러인덱스", "macro"], ["DEXKOUS", "원/달러", "macro"], ["VIXCLS", "VIX", "macro"]];
+async function viewCmp(el) {
+  const get = async f => { try { return await (await fetch(f, { cache: "no-cache" })).json(); } catch { return null; } };
+  const [H, MK, M, T] = await Promise.all([get("cal/tvhist.json"), get("cal/mkt.json"), loadX("macro").catch(() => null), get("cal/tv.json")]);
+  if (!document.body.contains(el)) return;
+  if (!H) { el.innerHTML = NODATA("지표"); return; }
+  const names = { ...(H._names || {}) }; (T?.events || []).forEach(r => names[r.k] ||= [r.country, r.title]);
+  const keys = Object.keys(H).filter(k => !k.startsWith("_") && H[k].length > 3);
+  const label = k => { const [c, t] = names[k] || ["", k]; return `${TVC.find(x => x[0] === c)?.[1] || c} ${TVKO[t] || t}`; };
+  keys.sort((a, b) => { const ca = TVC.findIndex(x => x[0] === names[a]?.[0]), cb = TVC.findIndex(x => x[0] === names[b]?.[0]); return (ca - cb) || label(a).localeCompare(label(b)); });
+  let k = store.get("cmpk", null); if (!keys.includes(k)) k = keys.find(x => /Non Farm|Inflation Rate MoM/.test(names[x]?.[1] || "") && names[x]?.[0] === "US") || keys[0];
+  const sel = store.get("cmpm", ["SP500", "DGS2"]), yrs = store.get("cmpy", 5);
+  const pal = [css("--up"), css("--down"), "#b07d2a", "#7a52b3", "#2f8f9d", css("--faint"), "#c03fa0", css("--sub")];
+  el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <select id="cmpk" aria-label="지표" style="max-width:100%">${keys.map(x => `<option value="${esc(x)}" ${x === k ? "selected" : ""}>${esc(label(x))}</option>`).join("")}</select>
+      <span class="tabs" id="cmpy">${[[1, "1년"], [3, "3년"], [5, "5년"]].map(([y, l]) => `<button data-k="${y}" class="${y === yrs ? "on" : ""}">${l}</button>`).join("")}</span></div>
+    <div class="tabs" id="cmpm" style="flex-wrap:wrap;margin-bottom:10px"><span class="small muted" style="align-self:center">같이 볼 것:</span>${CMPM.map(([m, l], i) => `<button data-k="${m}" class="${sel.includes(m) ? "on" : ""}"><i style="color:${pal[i]}">●</i> ${l}</button>`).join("")}</div>
+    <div class="chart"><h3>${esc(label(k))} <small>막대 = 발표치(왼쪽 축), 점선 = 예상 · 선 = 시장(각자 축, 오른쪽)</small></h3><div id="cmpc"></div></div>
+    <div id="cmpr"></div>`;
+  const start = isoMinus(kstToday(), Math.round(365.25 * yrs)), Hk = H[k].filter(x => x[0].slice(0, 10) >= start);
+  const ser = sel.map(m => { const i = CMPM.findIndex(x => x[0] === m), z = CMPM[i][2] === "mkt" ? MK?.[m] : M?.[m]; return z ? { m, l: CMPM[i][1], col: pal[i], z } : null; }).filter(Boolean);
+  const set = new Set(Hk.map(x => x[0].slice(0, 10))); ser.forEach(s => s.z.d.forEach(d => d >= start && set.add(d)));
+  const xs = [...set].sort(), xi = new Map(xs.map((d, i) => [d, i])), col = () => xs.map(() => null);
+  const ha = col(), hf = col(); Hk.forEach(x => { const i = xi.get(x[0].slice(0, 10)); ha[i] = x[1]; hf[i] = x[2]; });
+  const cols = ser.map(s => { const c = col(); s.z.d.forEach((d, j) => { const i = xi.get(d); if (i != null) c[i] = s.z.v[j]; }); return c; });
+  const sub = css("--sub"), rule = css("--rule"), host = $("#cmpc");
+  const u = new uPlot({ width: Math.max(300, host.clientWidth - 4), height: 380,
+    cursor: { points: { size: 6 }, drag: { x: true, y: false } }, legend: { live: true },
+    scales: { x: { time: true }, y: {}, ...Object.fromEntries(ser.map(s => [s.m, {}])) },
+    axes: [{ stroke: sub, grid: { stroke: rule } }, { scale: "y", stroke: css("--accent"), grid: { stroke: rule }, size: 56 },
+      ...ser.map((s, i) => ({ scale: s.m, side: 1, stroke: s.col, grid: { show: false }, size: 58, show: i < 3 }))],
+    series: [{ label: "날짜", value: (uu, v) => v == null ? "–" : new Date(v * 1000).toISOString().slice(0, 10) },
+      { label: "발표치", scale: "y", stroke: css("--accent"), fill: "color-mix(in srgb, " + css("--accent") + " 55%, transparent)", paths: uPlot.paths.bars({ size: [0.6, 10] }), points: { show: false } },
+      { label: "예상", scale: "y", stroke: css("--ink"), dash: [4, 3], width: 1.2, spanGaps: true, points: { show: true, size: 4 } },
+      ...ser.map(s => ({ label: s.l, scale: s.m, stroke: s.col, width: 1.6, spanGaps: true, points: { show: false } }))],
+    hooks: { setSelect: [uu => { if (uu.select.width > 10) uu.setScale("x", { min: uu.posToVal(uu.select.left, "x"), max: uu.posToVal(uu.select.left + uu.select.width, "x") }); uu.setSelect({ width: 0, height: 0 }, false); }] },
+  }, [xs.map(d => Date.parse(d + "T00:00:00Z") / 1000), ha, hf, ...cols], host);
+  S.charts.push(u);
+  host.ondblclick = () => u.setScale("x", { min: u.data[0][0], max: u.data[0].at(-1) });
+  const R = reactions(H[k], { ...(M || {}), ...(MK || {}) }), fm = (v, un) => v == null ? "–" : (v > 0 ? "+" : "") + v.toFixed(un === "bp" ? 1 : 2) + (un === "bp" ? "bp" : "%");
+  $("#cmpr").innerHTML = `<p class="small muted">드래그하면 그 구간 확대, 더블클릭하면 원래대로. 시장 선은 각자 축이라 높이보다 방향을 같이 보세요.</p>
+    <div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>발표 날 시장 반응</th><th>상관</th><th>예상보다 높을 때</th><th>낮을 때</th></tr></thead><tbody>${R.map(x => `<tr><td class="name">${x.nm}<small>${x.n}번</small></td>
+      <td>${x.corr == null ? "–" : x.corr.toFixed(2)}</td><td class="${cls(x.hi)}">${fm(x.hi, x.u)}<small>${x.nhi ?? ""}번</small></td><td class="${cls(x.lo)}">${fm(x.lo, x.u)}<small>${x.nlo ?? ""}번</small></td></tr>`).join("")}</tbody></table></div>
+    <p class="small muted">상관 = 서프라이즈(실제−예상)가 클수록 그날 시장이 어느 쪽으로 움직였는지 (−1~1, ±0.3 넘으면 꽤 뚜렷).</p>`;
+  el.onclick = e => { const t = e.target.closest("#cmpm button,#cmpy button"); if (!t) return;
+    if (t.closest("#cmpy")) store.set("cmpy", +t.dataset.k); else { const i = sel.indexOf(t.dataset.k); i >= 0 ? sel.splice(i, 1) : sel.push(t.dataset.k); store.set("cmpm", sel); }
+    destroyCharts(); viewCmp(el); };
+  $("#cmpk").onchange = e => { store.set("cmpk", e.target.value); destroyCharts(); viewCmp(el); };
+}
 /* 일정 메뉴: 달력 + 해석 + 다가오는 목록 */
 async function viewCal(app) {
   app.innerHTML = `<div><div class="kicker">일정</div><h2>경제 일정 달력</h2>
     <p class="small muted">FOMC·미국 CPI·고용·한국은행 금리 결정·옵션 만기. 날짜의 일정을 누르면 무엇이고 어떻게 해석하는지 나와요. FOMC는 한국 시간 다음 날 새벽, CPI·고용은 같은 날 밤에 나와요.</p></div>
-    <span class="tabs" id="caltab" style="margin-top:10px">${[["mine", "주요 일정 · 해석"], ["tv", "전체 경제 일정 (TradingView)"]].map(([k, l]) => `<button data-k="${k}" class="${k === store.get("caltab", "mine") ? "on" : ""}">${l}</button>`).join("")}</span>
+    <span class="tabs" id="caltab" style="margin-top:10px">${[["mine", "주요 일정 · 해석"], ["cmp", "지표 vs 시장 비교"], ["tv", "전체 경제 일정 (TradingView)"]].map(([k, l]) => `<button data-k="${k}" class="${k === store.get("caltab", "mine") ? "on" : ""}">${l}</button>`).join("")}</span>
     <div id="calbox" style="margin-top:14px"><p class="loading">불러오는 중…</p></div>`;
   tabsBind("#caltab", k => { store.set("caltab", k); viewCal(app); });
   if (store.get("caltab", "mine") === "tv") {   // 외부 위젯: 전 세계 경제지표 발표 일정(예상치·이전치·실제치)
@@ -396,7 +447,8 @@ async function viewCal(app) {
     box.innerHTML = `<p class="small muted">미국·한국·중국·일본·유로존의 중요도 중간 이상 지표. 발표되면 실제치가 채워져요. 화면 위 필터로 나라·중요도를 바꿀 수 있어요. (TradingView 제공, 해석은 '주요 일정 · 해석' 탭)</p>`;
     w.appendChild(sc); box.appendChild(w); return;
   }
-  const el = $("#calbox"), { evs, stale, today, tvUpdated, hist } = await loadEvents(), M = await loadX("macro").catch(() => null); if (!document.body.contains(el)) return;
+  if (store.get("caltab", "mine") === "cmp") return viewCmp($("#calbox"));
+  const el = $("#calbox"), { evs, stale, today, tvUpdated, hist } = await loadEvents(), M = { ...((await loadX("macro").catch(() => null)) || {}), ...((await fetch("cal/mkt.json", { cache: "no-cache" }).then(r => r.json()).catch(() => null)) || {}) }; if (!document.body.contains(el)) return;
   const on = store.get("evon2", EVK.map(k => k[0])), pk = store.get("evpick", ""); store.set("evpick", "");
   let pick = evs.find(e => e[0] + "|" + e[2] === pk) || evs.find(e => evPass(e, on) && e[0] >= today && e[1] !== "tv") || null, ym = (pick?.[0] || today).slice(0, 7);
   const shown = () => evs.filter(e => evPass(e, on));
@@ -409,7 +461,7 @@ async function viewCal(app) {
         <div><div class="lbl">예상</div><div class="v">${fmtV(r.forecast, r)}</div></div><div><div class="lbl">이전</div><div class="v">${fmtV(r.previous, r)}</div></div></div>
       ${I ? `<p style="margin:10px 0 6px">${I.what}</p><div><b>볼 것</b><ul style="margin:4px 0 8px 18px;padding:0">${I.watch.map(w => `<li>${w}</li>`).join("")}</ul></div><p style="margin:0 0 8px"><b>시장 반응</b> ${I.react}</p>` : ""}
       <p class="small" style="margin:8px 0 0"><b>해석</b> 실제가 예상과 크게 다를수록 시장이 크게 움직여요. 물가·고용이 예상보다 높으면 보통 금리 상승·달러 강세(주식엔 부담), 낮으면 반대. 경기지표(PMI·소매판매·GDP)는 예상보다 좋으면 경기에 긍정적이지만 금리 인하 기대는 줄어요.</p>
-      ${(hist[r.k] || []).length > 2 ? `<div class="chart" style="margin-top:10px"><h3>지난 발표치 <small>실제 · 예상(점선), 최근 5년</small></h3><div id="tvh"></div></div>
+      ${(hist[r.k] || []).length > 2 ? `<p class="small" style="margin:10px 0 0"><a href="#" data-cmp="${esc(r.k)}">금리·S&P·코스피와 한 차트에서 크게 비교 →</a></p><div class="chart" style="margin-top:6px"><h3>지난 발표치 <small>실제 · 예상(점선), 최근 5년</small></h3><div id="tvh"></div></div>
         <div class="chart"><h3>같은 기간 시장 <small><span class="tabs" id="tvm">${REACT.map(([k, nm]) => `<button data-k="${k}" class="${k === store.get("tvm", "IDX_KOSPI") ? "on" : ""}">${nm}</button>`).join("")}</span></small></h3><div id="tvmc"></div></div>
         ${(() => { const R = reactions(hist[r.k], M), fm = (v, u) => v == null ? "–" : (v > 0 ? "+" : "") + v.toFixed(u === "bp" ? 1 : 2) + (u === "bp" ? "bp" : "%");
           return `<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>발표 날 반응</th><th>상관</th><th>예상보다 높을 때</th><th>낮을 때</th></tr></thead><tbody>${R.map(x => `<tr><td class="name">${x.nm}<small>${x.n}번</small></td>
@@ -446,7 +498,8 @@ async function viewCal(app) {
       ${stale.length ? `<p class="small down">${stale.join(", ")} 다음 해 일정이 아직 안 들어갔어요</p>` : ""}`;
     destroyCharts(); tvCharts();
   };
-  el.addEventListener("click", e => { const t = e.target.closest("[data-i],[data-mv],#evf button,#evtvc button,#evtvi button,#tvm button"); if (!t) return;
+  el.addEventListener("click", e => { const c = e.target.closest("[data-cmp]"); if (c) { e.preventDefault(); store.set("cmpk", c.dataset.cmp); store.set("caltab", "cmp"); return viewCal(app); }
+    const t = e.target.closest("[data-i],[data-mv],#evf button,#evtvc button,#evtvi button,#tvm button"); if (!t) return;
     if (t.closest("#tvm")) { store.set("tvm", t.dataset.k); }
     else if (evTvClick(t)) {}
     else if (t.dataset.i != null) { pick = evs[+t.dataset.i]; ym = pick[0].slice(0, 7); }

@@ -76,7 +76,7 @@ if hist.get("_day") != now.strftime("%Y-%m-%d") or hist.get("_v") != 3:
 
 # ---------------- 미국 주가지수 (Yahoo): 지표 비교 차트용 ----------------
 def yahoo(sym):
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=10y&interval=1d"
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=5y&interval=1d"
     js = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30))["chart"]["result"][0]
     d, v = [], []
     for t, c in zip(js["timestamp"], js["indicators"]["quote"][0]["close"]):
