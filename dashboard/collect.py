@@ -368,6 +368,7 @@ def main():
     step("리포트 버튼 설정", lazy("publish_site", "setup_actions"))
     conn = db.connect()
     day = stock.get_nearest_business_day_in_a_week()  # 'YYYYMMDD'
+    day = settled_day(day)
     print(f"기준일: {day}")
     watch = watchlist()
     tickers = update_stocks(conn, day, watch)
@@ -404,22 +405,21 @@ def _kst():
     return dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).replace(tzinfo=None)
 
 
-def wait_for_close():
-    """평일 장중·장전이면 READY_AT 까지 기다림 (장중에 받으면 오늘 값이 덜 끝난 가격으로 저장됨)"""
+def settled_day(day):
+    """평일 16시(한국) 전에는 오늘 값이 아직 덜 끝났으니 직전 거래일까지만 받음 (장 끝난 뒤 18시 실행이 오늘 것을 받음)"""
     now = _kst()
-    ready = now.replace(hour=READY_AT[0], minute=READY_AT[1], second=0, microsecond=0)
-    if now.weekday() >= 5 or now >= ready:
-        return
-    print(f"아직 장이 안 끝났어요 → 오늘 {READY_AT[0]}:{READY_AT[1]:02d} 에 시작해요. 창을 닫지 마세요. (바로 하려면 python collect.py --now)", flush=True)
-    while True:
-        left = (ready - _kst()).total_seconds()
-        if left <= 0:
-            break
-        if sys.__stdout__.isatty():
-            sys.__stdout__.write(f"\r  시작까지 {int(left // 3600)}시간 {int(left % 3600 // 60):02d}분   ")
-            sys.__stdout__.flush()
-        time.sleep(min(60, left))
-    print()
+    if now.weekday() >= 5 or (now.hour, now.minute) >= READY_AT or day != now.strftime("%Y%m%d"):
+        return day
+    prev = (now - dt.timedelta(days=1)).strftime("%Y%m%d")
+    try:
+        p = stock.get_nearest_business_day_in_a_week(prev)
+    except TypeError:   # 날짜를 못 받는 버전 → 주말만 건너뜀
+        d = now - dt.timedelta(days=1)
+        while d.weekday() >= 5:
+            d -= dt.timedelta(days=1)
+        p = d.strftime("%Y%m%d")
+    print(f"아직 장이 안 끝나서 오늘({day}) 대신 직전 거래일({p})까지 받아요.")
+    return p
 
 
 def _alive(pid):
@@ -493,8 +493,6 @@ if __name__ == "__main__":
     if single_run():
         sys.exit(0)
     step("자동 실행 등록", ensure_autostart)
-    if "--now" not in sys.argv:
-        wait_for_close()
-    else:
+    if "--now" in sys.argv:
         sys.argv.remove("--now")
     main()

@@ -55,7 +55,7 @@ Firebase (Auth + Firestore) = 개인 데이터만: 로그인(구글), 관심종�
 - 집 PC는 `updater.py` 의 RAW 주소와 FILES 목록으로만 새 코드를 받는다. **dashboard/ 경로나 파일 이름을 바꾸지 않는다.**
   새 .py 를 추가하면 FILES 에 넣고, 첫 실행에서는 그 파일이 아직 없을 수 있으니(옛 updater 가 모름) 없어도 죽지 않게 한다.
   배치(.bat)는 자동으로 안 바뀐다 (NEW_ONLY 는 없을 때만 생성). 배치가 부르는 이름: `updater.py`, `collect.py`, `reports.py`.
-- collect.py 를 직접 실행하면(__main__): 평일 16시 전이면 16시까지 기다림(--now 로 건너뜀), `.running`(pid) 으로 겹쳐 돌기 방지(살아 있는 다른 실행이 있으면 끝날 때까지 기다림, 죽은 표시는 무시),
+- collect.py 를 직접 실행하면(__main__): 평일 16시 전이면 오늘 대신 직전 거래일까지만 받음(settled_day, 기다리지 않음), `.running`(pid) 으로 겹쳐 돌기 방지(살아 있는 다른 실행이 있으면 끝날 때까지 기다림, 죽은 표시는 무시),
   자동 실행이 없으면 시작프로그램(kospi_update.cmd)과 매일 18시 작업을 만들어 둠(관리자 권한 불필요).
 - 집 PC에 직접 들어가 볼 수 없는 때가 많다. 실패해도 다음 단계가 돌게(collect.step), 화면 출력은 `last_run.log` 에도 남는다.
 - pykrx 는 import/첫 요청 때 KRX 로그인을 한다. KRX·네이버는 요청 사이에 SLEEP 을 둔다 (줄이면 차단될 수 있음).
