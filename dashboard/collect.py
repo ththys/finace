@@ -422,15 +422,48 @@ def wait_for_close():
     print()
 
 
+def _alive(pid):
+    """그 번호의 프로그램이 아직 살아 있나 (Windows·그 밖)"""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if os.name == "nt":
+        import ctypes
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return code.value == 259   # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 def single_run():
-    """이미 다른 창에서 돌고 있으면 True (로그온 실행과 18시 실행이 겹칠 때). 4시간 넘은 표시는 무시"""
+    """다른 창(컴퓨터 켤 때 자동 실행 등)에서 이미 돌고 있으면 그게 끝날 때까지 기다렸다가 True.
+    표시만 남고 프로그램이 없으면(창을 강제로 닫은 경우) 무시하고 이번에 돌림"""
     lock = os.path.join(HERE, ".running")
     try:
-        if os.path.exists(lock) and time.time() - os.path.getmtime(lock) < 4 * 3600:
-            return True
+        if os.path.exists(lock):
+            pid = open(lock).read().strip()
+            if _alive(pid) and pid != str(os.getpid()):
+                print("다른 창(작업 표시줄에 작게 내려간 창)에서 업데이트가 이미 돌고 있어요 → 끝날 때까지 기다려요...", flush=True)
+                t0 = time.time()
+                while os.path.exists(lock) and _alive(pid) and time.time() - t0 < 3 * 3600:
+                    if sys.__stdout__.isatty():
+                        sys.__stdout__.write(f"\r  기다리는 중 {int((time.time() - t0) // 60)}분   ")
+                        sys.__stdout__.flush()
+                    time.sleep(10)
+                print("\n다른 창의 업데이트가 끝났어요.")
+                return True
         open(lock, "w").write(str(os.getpid()))
         import atexit
-        atexit.register(lambda: os.path.exists(lock) and os.remove(lock))
+        atexit.register(lambda: os.path.exists(lock) and open(lock).read().strip() == str(os.getpid()) and os.remove(lock))
     except OSError:
         pass
     return False
@@ -458,7 +491,7 @@ def ensure_autostart():
 
 if __name__ == "__main__":
     if single_run():
-        sys.exit(print("이미 다른 창에서 업데이트 중이라 이번엔 건너뛰어요.") or 0)
+        sys.exit(0)
     step("자동 실행 등록", ensure_autostart)
     if "--now" not in sys.argv:
         wait_for_close()
