@@ -478,11 +478,22 @@ def ensure_autostart():
     has = lambda name: subprocess.run(["schtasks", "/Query", "/TN", name], capture_output=True).returncode == 0
     startup = os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup")
     if not has("kospi_update_logon") and os.path.isdir(startup):
+        # 진행 상황이 창에 보이게 (kospi_update.bat 은 출력이 update.log 로만 가서 창이 비어 보였음)
+        auto = os.path.join(HERE, "kospi_auto.cmd")
+        body = (f'@echo off\r\ntitle kospi 자동 업데이트 (끝나면 저절로 닫혀요)\r\ncd /d "{HERE}"\r\nset PYTHONUTF8=1\r\n'
+                f'"{sys.executable}" -u updater.py\r\n"{sys.executable}" -u collect.py\r\n')
         f = os.path.join(startup, "kospi_update.cmd")
-        if not os.path.exists(f):
-            with open(f, "w", encoding="mbcs") as w:
-                w.write(f'@echo off\r\ntimeout /t 90 /nobreak >nul\r\nstart "kospi" /min cmd /c ""{bat}""\r\n')
-            print("자동 실행 등록: 컴퓨터를 켜고 로그인하면 데이터 업데이트가 저절로 돌아요 (시작프로그램)")
+        start = f'@echo off\r\ntimeout /t 90 /nobreak >nul\r\nstart "kospi" /min "{auto}"\r\n'
+        for path, text in ((auto, body), (f, start)):
+            try:
+                cur = open(path, encoding="mbcs", newline="").read() if os.path.exists(path) else None
+            except Exception:
+                cur = None
+            if cur != text:
+                with open(path, "w", encoding="mbcs", newline="") as w:
+                    w.write(text)
+                if path == f and cur is None:
+                    print("자동 실행 등록: 컴퓨터를 켜고 로그인하면 데이터 업데이트가 저절로 돌아요 (시작프로그램)")
     if not has("kospi_update_1800"):
         r = subprocess.run(["schtasks", "/Create", "/TN", "kospi_update_1800", "/TR", f'"{bat}"', "/SC", "DAILY", "/ST", "18:00", "/F"], capture_output=True)
         if r.returncode == 0:
