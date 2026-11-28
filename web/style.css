@@ -7,6 +7,7 @@
   --serif:"Noto Serif KR","Nanum Myeongjo",serif;
   --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --paper:#131416; --card:#1b1d20; --ink:#ececea; --sub:#a3a7ad; --faint:#7d8288;
@@ -24,6 +25,8 @@ a{color:inherit}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
 button,input,select{font:inherit;color:inherit}
+select{background:var(--card);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:4px 6px}
+select option{background:var(--card);color:var(--ink)}
 
 /* 마스트헤드 */
 .mast{border-bottom:3px double var(--rule-strong);padding-block:18px 10px}
